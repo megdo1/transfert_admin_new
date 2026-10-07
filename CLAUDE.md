@@ -29,6 +29,10 @@ remplacement des batchs ClearBasic et Pro*C actuels.
 | `inf915_orchestrateur.py` | orchestrateur batch, lance les procédures du package |
 | `inf915.ini` | configuration de l'orchestrateur |
 | `rcone_transfert_parc.html` | maquette interactive du parcours, six écrans |
+| `inf915_modele_donnees.md` / `.mmd` | diagramme ER Mermaid. Le `.mmd` est du Mermaid pur, pour l'import draw.io (Arrange > Insert > Advanced > Mermaid) ; le `.md` l'habille de notes |
+| `legacy/` | sources d'origine analysées (voir section 8), versionnées avec le projet |
+
+Le diagramme Mermaid est à régénérer à chaque évolution du modèle de données.
 
 Ordre d'installation : le modèle, puis le package. L'orchestrateur et son `.ini` se
 déposent dans le même répertoire côté batch, le `.ini` en `chmod 600`.
@@ -385,6 +389,72 @@ TABLE_PART_NUM         X_AV_INSTALL_TYPE, X_AV_TYPE, X_AV_CROSS_REF, X_AV_GEN_SI
 ---
 
 ## 9. Points ouverts
+
+### 9.1 Audit du 2026-10-07 (lecture seule, rien compilé : pas d'Oracle disponible)
+
+Trois bloquants **corrigés** (commit `46a4011`) :
+
+- `PR_TRAITER_LIGNE` : `SELECT l.*, n.DATE_EFFET INTO l_lig, l_effet` ne compile pas, un
+  `%ROWTYPE` ne partage pas son `INTO` avec un scalaire. Deux `SELECT` séparés.
+- Les `ID_*_CIBLE` de `INF915_LIGNE` n'étaient jamais écrits. `PR_CREER_OBJETS_PARENTS`
+  les reporte désormais via `FN_CIBLE` quand le statut final est `PARENTS_CREES`.
+  Garde-fou `-20946` dans `PR_TRAITER_LIGNE` si lot, SI ou CF cible est NULL.
+- Orchestrateur : `callTimeout` retiré, il exige un client Oracle 18.1 alors que la spec
+  impose 11.2.
+
+**À arbitrer, non traité** (décisions de cycle de vie, ne pas coder sans accord métier) :
+
+- **Reprise et relance non câblées.** `SQL_LIGNES` exclut `EN_COURS_LIGNES`,
+  `TRAITEE_PARTIELLE` et `EN_ERREUR` : une demande dont l'orchestrateur a planté n'est
+  jamais reprise, `PR_LIBERER_LIGNES` est du code mort, il n'existe pas de `PR_RELANCER`,
+  et une demande bloquée en `EN_COURS_PARENTS` n'a aucune sortie. Contradiction entre les
+  deux requêtes disjointes imposées (section 5.2) et la promesse de reprise.
+- **Raccourci `EN_ATTENTE` → `EN_COURS_LIGNES` inatteignable** : les lots sont toujours en
+  `CREATION`, donc `NB_OBJETS_A_CREER` vaut au moins 1. Compter hors lots, ou retirer le
+  raccourci.
+- **Course sur `P_LINE_NO`** : `FN_PROCHAIN_RANG` fait `MAX+1` sans verrou sur 20
+  processus. Piste : `FOR UPDATE` sur le lot cible, et maintenir `LAST_P_LINE_NO` comme le
+  legacy (`chmt_cf.cbs:3425`).
+- **Double traitement** : `PR_LIBERER_LIGNES` remet en file une ligne encore active ;
+  l'idempotence sur `ID_CONTR_ITM_CIBLE` ne protège pas, il est écrit dans la même
+  transaction que la copie. Piste : `FOR UPDATE NOWAIT` sur la BdS source, test d'existence
+  sur `X_AV_NEW2PREVIOUS`, `UPDATE` final conditionné par `ID_WORKER`.
+- **Lignes portées** : `ID_LIGNE_PORTEUSE` n'est jamais alimenté, et le pool les traiterait
+  en parallèle de leur porteuse (`ERREUR_METIER` -20942 à tort).
+- **Aucun recontrôle à l'exécution** (`STATUT_ACT` et `FLAG_TRANSFERT` non relus) : la
+  section 5 est réservée, mais ce minimum manque.
+- **`INF915_EVENEMENT` n'est écrite par aucune procédure** : la câbler ou la retirer.
+
+**Défauts relevés, à corriger quand le sujet est rouvert** :
+
+- `ACTEUR` est `VARCHAR2(40)`, l'orchestrateur passe jusqu'à 60 caractères : ORA-12899 dans
+  `PR_TRACER`. Acteur court fixe, ou `SUBSTR`.
+- `DATE_EFFET` n'est pas tronquée : une date horodatée rend la demande éligible le
+  lendemain. `TRUNC` et `CHECK`.
+- Compteurs de `INF915_NOTIFICATIONS` qui dérivent à la relance, et chemin d'idempotence qui
+  n'incrémente pas `NB_LIGNES_OK`. Recalculer depuis `INF915_LIGNE` dans `PR_CLOTURER`.
+- `X_AV_NEW2PREVIOUS` hérité sur les BdS2 par la copie `%ROWTYPE` : le mettre à NULL dans la
+  branche `ELSE` (règle 4.4).
+- `INF915_TMP_LIGNE` sans unicité : un doublon donne ORA-00001 au lieu de
+  `PERIMETRE_INCOHERENT`.
+- `MSG_ERREUR VARCHAR2(500)` en octets, `SUBSTR` en caractères : passer en `500 CHAR`.
+- Orchestrateur : `ConfigParser(interpolation=None)` (mot de passe contenant `%`), code de
+  retour 0 malgré des demandes en échec, pool cassé non détecté, connexion de fils jamais
+  rouverte après coupure, handlers `.worker` en conflit à la rotation.
+- Écart au legacy, contraire à la règle « reproduire fidèlement » : le repointage SI/CF est inconditionnel alors que le
+  legacy le conditionne (`gen_si`, `F2`, `IF2`, BdS AC), règle ajoutée non attestée.
+- Documentation périmée : références à `FN_PRENDRE_LOT_LIGNES` et à la prise de lot ; le
+  package a cinq `INSERT ... SELECT` et non sept ; commentaire faux sur
+  `X_AV_FLAG_TRANSFERT` dans `PR_RESILIER_BDS` (le legacy le pose, `chmt_cf.cbs:3455`).
+- Index probablement inutiles : `IX_INF915_PARENT_SRC` (doublon de la contrainte unique),
+  `_LIGNE_WORK`, `_LIGNE_LOT`, `_ACTION_TYP`. Scripts d'installation non rejouables, aucun
+  `GRANT`.
+
+**À vérifier avant de conclure** : les procédures du socle ne doivent pas faire de `COMMIT`
+hors transaction autonome, sinon « une ligne, une transaction » est faux ; un index doit
+exister sur `TABLE_CONTR_ITM(X_AV_ID_EDS)`.
+
+### 9.2 Points ouverts antérieurs
 
 **La propagation aval n'est pas écrite.** Événements accord cadre
 `TABLE_X_AV_AC_EVENTS`, calcul PRI mobile `TABLE_X_AV_INF356_PRI_MOB_EVT`, notifications
