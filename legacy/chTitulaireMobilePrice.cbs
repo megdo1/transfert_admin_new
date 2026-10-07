@@ -1,0 +1,2289 @@
+' #***************************************************************************************************
+' # Fichier : chTitulaireMobilePrice.cbs
+' #-- Cr�ation ---------------------------------------------------------------------------------------
+' # Auteur : Youness AADISSA
+' # Date : 03-03/2010
+' #-- Modification (Automatique) ---------------------------------------------------------------------
+' # $Revision: 30804 $
+' # $Author: Sebastien PELEGRY $
+' # $Date: 2019-02-07 14:18:21 +0100 (jeu., 07 févr. 2019) $
+' #***************************************************************************************************
+' # Description :
+' # Script : Changement de titulaire Mobile Price - Batch
+' #-- Changements importants -------------------------------------------------------------------------
+' # COR C16365854 : Modification pour rendre possible le changement de titulaire pour une ligne seulement.
+' #***************************************************************************************************
+
+Option Explicit
+
+'********** Variables de traitement **************************************
+Dim strAcces              As String  'Acces
+Dim strFixe               As String  'Fixe
+Dim strMobile             As String  'Mobile
+
+
+Global gbSwapDaysAndMonths  As Boolean
+Global gzClarifyDateFormat  As String    ' The setting of Clarify Date format
+Global strTimeStamp         As String
+Declare Function vGetPOMSDateFormat() As String
+Declare Sub vCheckDateFormat()
+Declare Sub TRUELOG(strin As String)
+Declare Sub TRUEERR(strin As String)
+Declare Function date2caract (intDate As Integer)As String
+Declare Function vStr2Date( ByVal azDate As String)As Date
+Declare Function trim_f(strin As String,  i As integer)As string
+Declare Function recupBds1(ObjidLotSource As String, index As Integer) As List
+Declare Function chkContrat(strID As String) As Boolean
+Declare Function chkLotCible(ObjidLotCible As String) As Boolean
+Declare Function chkLots(ObjidLotSrc As String, ObjidLotCbl As String) As Boolean
+Declare Function recupeObjiId(strContrat As String, strLot As String) As String
+Declare Function chkExLot(strLot As String, strType As String) As Boolean
+Declare Function chkExContrat(strID As String, strType As String) As Boolean
+Declare Function chkContratLot(strID As String, strLot As String) As Boolean
+Declare Function savedde(IdBDSSource As String, ObjidLotSource As String, ObjidLotCible As String, SdateEffet As String) As Boolean 'eel
+Declare Function traitementDde(ObjidLotSource As String, ObjidLotCible As String, ObjidLigne As String, SdateEffet As String) As Boolean 'COR/EVO C16365854 : Gestion d'un changement de titulaire � la ligne
+Declare Function chkCF(IdLotSource As String,IdLotCible As String,IdContratCible As String) As Boolean
+Declare Function ListCodeToString1(LstTmp As List, Separateur As String) As String
+Declare Function chkTerme(IdLotSource As String,IdLotCible As String) As Boolean
+Declare Function ListCodeToString(LstTmp As List, Field_name As String, Separateur As String) As String
+Declare Function checkChangementTituEnCours( bdssource As String) As Boolean
+Declare Function checkADGEnCours(ideds As String) As Boolean
+Declare Function checkOrg(strIdContratSource  As String,strIdContratCible   As String) As Boolean
+Declare Function Checkbdsinterdite(IdEDSSource As String) As Boolean
+Declare Function recupNomlotIdcontrat(IdEDSSource As String) As List
+Declare Function checkVPNContrat(strIdContratSource,strIdContratCible) As Boolean 'AEL RCE ET4
+Declare Function checkBDS2ParcDuo(strObjid  As String,strIdEDS As String) As Boolean 'IAA [MOVE ET4 V1]
+' # 30-05-2017 - KKAN : COR C18284878 - D�but >
+Declare Function checkBDS2ParcDuo2 (p_Objid As Long, p_contr_schedule_objid As Boolean) As Boolean
+' # 30-05-2017 - KKAN : COR C18284878 - Fin >
+Declare Function checkMigration(ideds As String) As Boolean 'MNA [MOVE4 V2.3]
+Declare Function checkLotsSecondaires(objidLotSource As String, objidLotCible As String) As Boolean 'MNA [MOVE4 V2.3]
+Declare Function GetBdsLigneToAcces(objidAcces As String) As List ''eel
+Declare Function InitParamXAvCode() As Boolean  'eel parametrage
+Declare Function recupeObjiIdLigne(IdLigneSource As String) As String             'COR/EVO C16365854 : Gestion d'un changement de titulaire � la ligne
+Declare Function chkLotLigne(ObjidLot As String, ObjidLigne As String) As Boolean 'COR/EVO C16365854 : Gestion d'un changement de titulaire � la ligne
+Declare Function changementEnCoursArticle(IdLigneSource As String) As Boolean     'COR/EVO C16365854 : Gestion d'un changement de titulaire � la ligne
+
+Const DATE_MMDDYY   = 1
+Const DATE_DDMMYY   = 2
+Const DATE_YYMMDD   = 3
+Const cstCVSID      = "@(#)$Id: "
+Const ErrLogNo      = 3
+const SUBCHMTTIT    = "chTitulaireMobilePrice"
+' # 30-05-2017 - KKAN : COR C18284878 - D�but >
+const CtiNonPermisPDuoA		= "Un CTI ne peut pas se lancer sur une ligne ayant une otpion parc duo active, merci de la r�silier pr�alablement."
+' # 30-05-2017 - KKAN : COR C18284878 - Fin >
+Dim ErrLog               As String
+Dim ErrKO                As String
+Dim SourceFile           As String
+Dim SEPARATOR            As String
+Dim strDateDebut         As String
+Dim strDateFin           As String
+Dim strDateFichier       As String
+Dim lngErrCount          As Long
+Dim lngAvrCount          As Long
+Dim intSucces            As Long
+Dim strmessage           As String
+Dim iCountBDS1           As Integer
+Type strResponse
+   lnum                  As Integer
+   response              As String
+End Type
+Dim typResponse          As strResponse
+Type strResponseCutOff
+    DateCutOff As String
+End Type
+Dim typResponseCutOff As strResponseCutOff
+Dim orgDifferente As Boolean
+Dim parcduo As Boolean
+Dim date_effet As String '898 NRED
+Sub chTitulaire (ByVal strFile As String, strDataOut As String, strLogOut As String, strLogFile As String, strValidDir As String, strDateEffet As String)
+On Error GoTo ErrHandler
+
+    Dim SourceFileNumber    As Integer
+    Dim intIgnCount         As Long
+    Dim nLu                 As Long
+    Dim SourceFileName      As String
+    Dim strTextLine         As String
+    Dim dtTimeStamp         As Date
+    Dim dtTimeStop          As Date
+    Dim dd                  As String
+    Dim mm                  As String
+    Dim yyyy                As String
+    Dim hh                  As String
+    Dim nn                  As String
+    Dim ss                  As String
+    Dim strTimeStop         As String
+    Dim strDateDebut        As String
+    Dim strDateFichier      As String
+    Dim strDateFin          As String
+    Dim strIdContratSource  As String
+    Dim strLotSource        As String
+    Dim strIdContratCible   As String
+    Dim strLotCible         As String
+    Dim ObjidLotSource      As String
+    Dim ObjidLotCible       As String
+    Dim nbrLine             As Integer
+  	Dim strDateEffetFile    As String 'eel
+	Dim IdLigneSource       As String  'COR/EVO C16365854 : Gestion d'un changement de titualire � la ligne
+	Dim EstLigne            As Boolean 'COR/EVO C16365854 : Gestion d'un changement de titualire � la ligne
+    Dim ObjidLigneS			As String
+
+    date_effet      = strDateEffet '898 NRED
+
+    nLu             = 0
+    lngErrCount     = 0
+    intSucces       = 0
+    strmessage      = ""
+    SourceFileName  = strFile
+	ObjidLigneS     = ""
+
+    Call vCheckDateFormat
+
+    strTimeStamp    = App.CurrentDate
+    dtTimeStamp     = vStr2Date(strTimeStamp)
+    dd              = date2caract (Day(strTimeStamp))
+    mm              = date2caract (Month(strTimeStamp))
+    yyyy            = CStr(Year(strTimeStamp))
+    hh              = date2caract (Hour(strTimeStamp))
+    nn              = date2caract (Minute (strTimeStamp))
+    ss              = date2caract (Second(strTimeStamp))
+    'D�termination du s�parateur
+    SEPARATOR       = "|"
+    strDateDebut    = dd & "/" & mm & "/" & yyyy & " � " & hh & ":" & nn & ":" & ss
+    strDateFichier  = dd & mm & yyyy & hh & nn & ss
+    'D�termine le nom du fichier sans son chemin
+    If strFile Like "/*" Then 'Path pass� en entr�e (migration)
+        SourceFile = strFile
+        Dim intLettre As Integer
+        For intLettre = 1 To Len(strFile)
+            If Mid(strFile, Len(strFile) - intLettre, 1) <> "/" Then
+                SourceFileName  = Right(strFile, intLettre + 1)
+            Else
+                Exit For
+            End If
+        Next intLettre
+    Else 'Seul le nom du fichier est pass� en entr�e (Import en masse)
+        SourceFile = Trim(strDataOut) & "/" & strFile
+        If strFile Like "./*" Then
+            SourceFileName = Right(strFile, Len(strFile) - 2)
+        Else
+            SourceFileName = strFile
+        End If
+    End If
+    'Le fichier en entr�e doit respecter la nomenclature suivante :
+    'Chgt_Titu_Liste_Lots_Mobile_Price_<AAAAMMJJ>_<n� s�quentiel>.ini
+    If SourceFileName Like "Chgt_Titu_Liste_Lots_Mobile_Price_*" Then
+    Else
+        Debug.Print "FORMAT FICHIER INVALID"
+        Exit Sub
+    End If
+
+    'GO :
+    ErrLog = strLogOut & "/" & SourceFileName & "_" & strDateFichier & ".log"
+    ErrKO = strValidDir & "/" & SourceFileName & "_" & strDateFichier & "_KO"
+
+    Debug.Print "G�n�ration des fichiers de log :[ " & ErrLog & "]"
+
+    Call TRUELOG("--- Date de d�but du traitement : " & Date & " - " & Time & " ---")
+
+    SourceFileNumber = FreeFile
+    ' Open source file For reading
+    Open SourceFile For Input As #SourceFileNumber
+
+    If Not InitParamXAvCode() Then  Exit Sub 'EEL parametrage
+
+    nLu         = 0
+    lngErrCount = 0
+    lngAvrCount = 0
+    Do While Not EOF(SourceFileNumber)
+        ' Read line inTo variable strTextLine
+        Line Input #SourceFileNumber, strTextLine
+
+        strIdContratSource    = trim_f(strTextLine, 1)
+        strLotSource          = trim_f(strTextLine, 2)
+        strIdContratCible     = trim_f(strTextLine, 3)
+        strLotCible           = trim_f(strTextLine, 4)
+	    strDateEffetFile      = trim_f(strTextLine, 5) 'eel
+		IdLigneSource    	  = trim_f(strTextLine, 6) 'COR/EVO C16365854 : Gestion d'un changement de titulaire � la ligne
+        EstLigne = (Len(Trim(IdLigneSource)) > 0)      'COR/EVO C16365854 : Gestion d'un changement de titulaire � la ligne
+		
+        nLu = nLu + 1
+        strmessage  = ""
+
+        Debug.Print "--------------------------------------------------------"
+        'V�rifier que les champs obligatoires sont renseign�s
+        If (Len(Trim(strIdContratSource)) = 0 Or Len(Trim(strLotSource)) = 0 Or Len(Trim(strIdContratCible)) = 0 Or Len(Trim(strLotCible)) = 0) Then
+            TRUELOG " ERREUR Ligne " & nLu & " : Ligne incorrecte"
+            lngErrCount = lngErrCount + 1
+            TRUEERR strTextLine 'Tracer ligne KO
+            GOTO NEXT_LINE
+        End If
+
+        'COR/EVO C16365854 : Gestion d'un changement de titulaire � la ligne - DEBUT >
+		'V�rifier que si l'identifiant de ligne est renseign�, il est au bon format
+        If EstLigne Then
+			If Not IsNumeric(IdLigneSource) then
+				TRUELOG " ERREUR Ligne " & nLu & " : L'identifiant de la ligne doit etre un nombre"
+				lngErrCount = lngErrCount + 1
+				TRUEERR strTextLine 'Tracer ligne KO
+				GOTO NEXT_LINE
+			End If
+        End If
+        'COR/EVO C16365854 : Gestion d'un changement de titulaire � la ligne - FIN >
+
+        'Verifier que le contrat cible est li� � un VPN mobile dans le cas o� le contrat source l est
+        If Not checkVPNContrat(strIdContratSource,strIdContratCible) Then
+            TRUELOG " ERREUR Ligne " & nLu & " : Le contrat cible n a pas de VPN Mobile "
+            lngErrCount = lngErrCount + 1
+            TRUEERR strTextLine 'Tracer ligne KO
+            GOTO NEXT_LINE
+        End If
+
+        'v�rifier l'existance de objets
+        If Not chkExContrat(strIdContratSource, "source") Or Not chkExLot(strLotSource, "source") Or Not chkExContrat(strIdContratCible, "cible") Or Not chkExLot(strLotCible, "cible") Then
+            TRUELOG " ERREUR Ligne " & nLu & " : " & strmessage
+            lngErrCount = lngErrCount + 1
+            TRUEERR strTextLine 'Tracer ligne KO
+            GOTO NEXT_LINE
+        End if
+        'Le contrat source n'est pas ORIAN
+        If Not chkContrat(strIdContratSource) Then
+            TRUELOG " ERREUR Ligne " & nLu & " : Le contrat source "& strIdContratSource &" est un contrat ORIAN"
+            lngErrCount = lngErrCount + 1
+            TRUEERR strTextLine 'Tracer ligne KO
+            GOTO NEXT_LINE
+        End if
+        'Le contrat cible n'est pas ORIAN
+        If Not chkContrat(strIdContratCible) Then
+            TRUELOG " ERREUR Ligne " & nLu & " : Le contrat cible "& strIdContratCible &" est un contrat ORIAN"
+            lngErrCount = lngErrCount + 1
+            TRUEERR strTextLine 'Tracer ligne KO
+            GOTO NEXT_LINE
+        End if
+        'v�rifier que les contrats ne sont pas identiques
+        If strIdContratSource = strIdContratCible Then
+            TRUELOG " ERREUR Ligne " & nLu & " : Le contrat source et le contrat cible doivent �tre diff�rents"
+            lngErrCount = lngErrCount + 1
+            TRUEERR strTextLine 'Tracer ligne KO
+            GOTO NEXT_LINE
+        End if
+        'v�rifier que lots ne sont pas identiques
+        If strLotSource = strLotCible Then
+            TRUELOG " ERREUR Ligne " & nLu & " : Le lot source et le lot cible doivent �tre diff�rents"
+            lngErrCount = lngErrCount + 1
+            TRUEERR strTextLine 'Tracer ligne KO
+            GOTO NEXT_LINE
+        End If
+        'v�rifier l'appartenance des lots aux contrats
+        If chkContratLot(strIdContratSource, strLotSource) And chkContratLot(strIdContratCible, strLotCible) Then
+            'r�cuperer les objid des lots
+            ObjidLotSource = recupeObjiId(strIdContratSource, strLotSource)
+            ObjidLotCible  = recupeObjiId(strIdContratCible, strLotCible)
+        Else
+            TRUELOG " ERREUR Ligne " & nLu & " : " & strmessage
+            lngErrCount = lngErrCount + 1
+            TRUEERR strTextLine 'Tracer ligne KO
+            GOTO NEXT_LINE
+        End if
+
+        'Le lot source et le lot cible poss�dent bien le m�me triplet Famille / ligne / Offre
+        If Not chkLots(ObjidLotSource, ObjidLotCible) Then
+            TRUELOG " ERREUR Ligne " & nLu & " : Le lot source " & strLotSource & " et le lot cible " & strLotCible & " ne poss�dent pas le m�me triplet Famille / ligne / Offre"
+            lngErrCount = lngErrCount + 1
+            TRUEERR strTextLine 'Tracer ligne KO
+            GOTO NEXT_LINE
+        End If
+
+        'Le lot cible poss�de bien un site de facturation
+        If Not chkLotCible(ObjidLotCible) Then
+            TRUELOG " ERREUR Ligne " & nLu & " : Le lot cible " & strLotCible & " ne poss�de pas un site de facturation"
+            lngErrCount = lngErrCount + 1
+            TRUEERR strTextLine 'Tracer ligne KO
+            GOTO NEXT_LINE
+        End If
+
+        '******* Les lots sources et cibles ne sont pas des lots de lignes secondaires
+        If checkLotsSecondaires(ObjidLotSource, ObjidLotCible) Then
+            TRUELOG " ERREUR Ligne " & nLu & " : Le Lot source " & strLotSource & " et/ou le lot cible " & strLotCible & " sont des lots de lignes secondaires"
+            lngErrCount = lngErrCount + 1
+            TRUEERR strTextLine 'Tracer ligne KO
+            GOTO NEXT_LINE
+        End If
+
+        'Check sur le site de facturation et d'installation du lot cible
+        If Not chkCF(ObjidLotSource,ObjidLotCible,strIdContratCible) Then
+            TRUELOG " ERREUR Ligne " & nLu & " : " & strmessage
+            lngErrCount = lngErrCount + 1
+            TRUEERR strTextLine 'Tracer ligne KO
+            GOTO NEXT_LINE
+        End If
+
+		'Check si l'organisation du contrat source est diff�rente de celle du contrat cible
+        If checkOrg(strIdContratSource,strIdContratCible) Then
+			orgDifferente = False
+			TRUELOG "L'organisation du contrat source est identique � celle du contrat cible."
+        Else
+			orgDifferente = True
+			TRUELOG "L'organisation du contrat source est diff�rente de celle du contrat cible."
+        End If
+
+        'COR/EVO C16365854 : Gestion d'un changement de titulaire � la ligne - DEBUT >
+		'V�rifications fonctionnelles concernant l'identifiant de ligne si renseign�
+        If EstLigne Then
+			'V�rifier si la ligne existe
+			ObjidLigneS = recupeObjiIdLigne (IdLigneSource)
+			If (Len(Trim(ObjidLigneS)) = 0) then
+				TRUELOG " ERREUR Ligne " & nLu & " : " & strMessage
+				lngErrCount = lngErrCount + 1
+				TRUEERR strTextLine 'Tracer ligne KO
+				GOTO NEXT_LINE
+			End If
+			
+			'V�rifier si la ligne appartient bien au lot source sp�cifi�
+			If Not chkLotLigne(ObjidLotSource, ObjidLigneS) then
+				TRUELOG " ERREUR Ligne " & nLu & " : La ligne n'appartient pas au lot source"
+				lngErrCount = lngErrCount + 1
+				TRUEERR strTextLine 'Tracer ligne KO
+				GOTO NEXT_LINE
+			End If
+		End If
+        'COR/EVO C16365854 : Gestion d'un changement de titulaire � la ligne - FIN >
+
+        'COR/EVO C16365854 : Gestion d'un changement de titulaire � la ligne - DEBUT >
+		'Traitement de la demande pour une ligne
+		If traitementDde(ObjidLotSource,ObjidLotCible,ObjidLigneS,strDateEffetFile) Then
+			If EstLigne Then
+				TRUELOG " Ligne " & nLu & " : Acte de changement de titulaire global sur la ligne " & IdLigneSource & " r�alis� correctement."
+			Else
+				TRUELOG " Ligne " & nLu & " : Acte de changement de titulaire global sur le lot " & strLotSource & " r�alis� correctement."
+			End If
+			intSucces = intSucces + 1
+		Else
+			TRUELOG " ERREUR Ligne " & nLu & " : " & strmessage
+			lngErrCount = lngErrCount + 1
+			TRUEERR strTextLine 'Tracer ligne KO
+		End If
+NEXT_LINE:
+    Loop
+    Debug.Print "--------------------------------------------------------"
+    Call TRUELOG("--- Date de Fin du traitement : " & Date & " - " & Time & " -----")
+
+REAL_END:
+
+    Dim dtDureeTraitement   As Date
+    ' Set the end date
+    strTimeStop     = App.CurrentDate
+    dtTimeStop      = CDate(strTimeStop)
+    strDateFin      = Day(dtTimeStop) & "/" & Month(dtTimeStop) & "/" & Year(dtTimeStop) & " � " & Hour(dtTimeStop) & ":" & Minute (dtTimeStop) & ":" & Second(dtTimeStop)
+    Dim dtFinish            As Date
+    Dim dtStart             As Date
+    Dim strDureeTraitement  As String
+
+    'Calcule la dur�e du traitement : on consid�re que le traitement ne durera pas plus d'un jour. Seule la dur�e en
+    'temps sera donc affich�e.
+    If Hour(dtTimeStop) >= Hour(dtTimeStamp) Then
+       dtFinish = TimeSerial(Hour(dtTimeStop)   ,Minute (dtTimeStop),Second(dtTimeStop))
+       dtStart  = TimeSerial(Hour(dtTimeStamp)  ,Minute (dtTimeStamp),Second(dtTimeStamp))
+    Else
+       dtFinish = TimeSerial(24,Minute (dtTimeStop),Second(dtTimeStop)) 'Pas correct
+       dtStart  = TimeSerial((Hour(dtTimeStamp) - Hour(dtTimeStop)),Minute (dtTimeStamp),Second(dtTimeStamp)) 'Pas correct
+    End If
+
+    dtDureeTraitement = Abs(dtFinish - dtStart)
+
+    TRUELOG "                                                  "
+    TRUELOG "Fichier d'entr�e : " & SourceFileName
+    TRUELOG "D�but du traitement : " & strDateDebut
+    TRUELOG "Nombre d'objets traites : " & nLu
+    TRUELOG "Nombre d'objets en erreur: " & lngErrCount
+    TRUELOG "Nombre d'avertissements : " & lngAvrCount
+    TRUELOG "Nombre d'objets traites avec succes: " & intSucces
+    TRUELOG "Fin du traitement : " & strDateFin
+    TRUELOG "Duree du traitement : " & dtDureeTraitement
+    TRUELOG "                                                  "
+
+    Exit Sub
+ErrHandler:
+    TRUELOG "Erreur n�" & Err.number & ", Ligne="& erl & " Source=" & Err.Source & " Description: " & Err.description
+End sub
+
+'*********************************************************************/
+'Author: Youness AADISSA
+'Description: Le contrat (source/cible) n'est pas ORIAN
+'Input :
+'Output : Boolean
+'Update:
+'*********************************************************************/
+Function chkContrat(strID As String) As Boolean
+On Error GoTo Error_Handling
+
+    Dim brContrat       As new BulkRetrieve
+    Dim lstContrat      As List
+    Dim recContrat      As Record
+
+    brContrat.SimpleQuery  0, "contract"
+    brContrat.AppendFilter 0, "id", cbEqual, strID
+    'brContrat.AppendFilter 0, "x_av_o_scs", cbEqual, 0
+    brContrat.RetrieveRecords
+    Set lstContrat  = brContrat.getRecordList(0)
+    Set recContrat  = lstContrat.itembyIndex(0)
+
+    If lstContrat.count > 0 Then
+        If recContrat.GetField("x_av_o_scs") = 0 Or recContrat.GetField("x_av_o_scs") = Null Then
+            chkContrat = True
+        Else
+            chkContrat = False
+        End If
+    Else
+        chkContrat = False
+    End if
+    Exit Function
+Error_Handling:
+    TRUELOG "Erreur n�" & Err.number & ", Ligne="& erl & " Source=" & Err.Source & " Description: " & Err.description
+End Function
+
+'*************************************************************************************************/
+'Author: Youness AADISSA
+'Description: Le lot source et le lot cible poss�dent bien le m�me triplet Famille / ligne /Offre
+'Input :
+'Output : Boolean
+'Update:
+'*************************************************************************************************/
+Function chkLots(ObjidLotSrc As String, ObjidLotCbl As String) As Boolean
+On Error GoTo Error_Handling
+
+    Dim br            As New BulkRetrieve
+    Dim lstTmp        As New List
+    Dim recTmp        As Record
+    Dim StrTrplLotSrc As String
+    Dim StrTrplLotCbl As String
+    Dim StrTrplLotSec As String
+
+    chkLots = False
+
+    br.SimpleQuery  0, "contr_schedule"
+    br.AppendFilter 0, "objid", cbEqual, ObjidLotSrc
+    br.SimpleQuery  1, "contr_schedule"
+    br.AppendFilter 1, "objid", cbEqual, ObjidLotCbl
+    br.RetrieveRecords
+
+    Set lstTmp = br.getRecordList(0)
+    If lstTmp.Count = 1 Then
+        Set recTmp = lstTmp.ItemByIndex(0)
+        StrTrplLotSrc = Trim(recTmp.getfield("x_av_family")) & "|" & Trim(recTmp.getfield("x_av_line")) & "|" & Trim(recTmp.getfield("x_av_offer"))
+    Else
+        Goto CleanUp
+    End If
+
+    Set lstTmp = br.getRecordList(1)
+    If lstTmp.Count = 1 Then
+        Set recTmp = lstTmp.ItemByIndex(0)
+        StrTrplLotCbl = Trim(recTmp.getfield("x_av_family")) & "|" & Trim(recTmp.getfield("x_av_line")) & "|" & Trim(recTmp.getfield("x_av_offer"))
+    Else
+        Goto CleanUp
+    End If
+
+    If StrTrplLotSrc = StrTrplLotCbl Then
+        chkLots = True
+    End if
+
+CleanUp:
+    Set br      = Nothing
+    Set lstTmp  = Nothing
+    Set recTmp  = Nothing
+
+    Exit Function
+Error_Handling:
+   TRUELOG "Erreur n�" & Err.number & ", Ligne="& erl & " Source=" & Err.Source & " Description: " & Err.description
+End Function
+
+'*********************************************************************/
+'Author: Youness AADISSA
+'Description: Le lot cible poss�de bien un site de facturation
+'Input :
+'Output : Boolean
+'Update:
+'*********************************************************************/
+Function chkLotCible(ObjidLotCible As String) As Boolean
+On Error GoTo Error_Handling
+
+    Dim brLot    As New Bulkretrieve
+    Dim lstLot   As List
+
+    brLot.simplequery 0, "contr_schedule"
+    brLot.appendfilter 0, "objid", cbEqual, ObjidLotCible
+    brLot.TraverseFromParent 1, "bill_to2site", 0
+    'brLot.appendfilter 1, "x_av_o_scs", cbGreater, 0
+    brLot.retrieverecords
+
+    Set lstLot = brLot.getRecordlist(1)
+    If lstLot.count > 0 Then
+        chkLotCible = True
+    Else
+        chkLotCible = False
+    End if
+
+    Exit Function
+Error_Handling:
+   TRUELOG "Erreur n�" & Err.number & ", Ligne="& erl & " Source=" & Err.Source & " Description: " & Err.description
+End Function
+'******************************************************************************************************************/
+'Author: Youness AADISSA
+'Description:V�rification que la Le statut d'activation de la BDS1 (champ X_AV_STATUT_ACT) est inclus dans
+'            une liste param�trable. (NB : cette liste de statuts autoris�s est commune au changement de titulaire
+'            . Elle est stock�e dans la table X_AV_CODE et est identifi�e par le type � LISTE_STATUT_CTI_CF �).
+'Input :
+'Output : List
+'Update:
+'******************************************************************************************************************/
+Function recupBds1(ObjidLotSource As String,index As Integer) As List
+On Error GoTo Error_Handling
+
+    Dim brBds1                  As New Bulkretrieve
+    Dim lstBds1                 As New List
+    Dim brStatutsActivation     As new Bulkretrieve
+    Dim lstStatutsActivation    As New List
+    Dim recStatutsActivation    As Record
+    Dim strQuery                As String
+    Dim i                       As Integer
+    Dim strSqlStatement         As String
+    Dim toDB                    As New SQLDB
+    Dim lstSiteFact             As New List
+    Dim nb                      As Integer
+
+   strQuery = "'"
+
+   brStatutsActivation.simplequery 0, "x_av_code"
+   brStatutsActivation.appendfilter 0, "x_av_type", cbequal, "LISTE_STATUT_BDS1_ACTE"
+   brStatutsActivation.retrieverecords
+   Set lstStatutsActivation = brStatutsActivation.getrecordlist(0)
+   If lstStatutsActivation.count > 0 Then
+       For i = 0 To lstStatutsActivation.Count -1
+           Set recStatutsActivation = lstStatutsActivation.itembyindex(i)
+           strQuery = strQuery & recStatutsActivation.getField("x_av_code") & "','"
+       Next i
+       strQuery = left(strQuery, Len(strQuery) -2)
+   End If
+   If Len(Trim(strQuery)) > 1 Then
+
+    lstSiteFact.itemtype = "String"
+    If index = 0 Then
+        strSqlStatement = "SELECT tci.objid "
+    Else
+        strSqlStatement = "SELECT tci.x_av_id_eds "
+    End If
+    strSqlStatement = strSqlStatement + "FROM table_contr_itm tci, table_contr_schedule tcs, table_contract tc " &_
+                     "WHERE tci.contr_itm2contr_schedule = tcs.objid " &_
+                     "AND tc.objid = tcs.schedule2contract " &_
+                     "AND tci.CHILD2CONTR_ITM IS  NULL " &_
+                     "AND tcs.objid = " & ObjidLotSource &" " &_
+                     "AND x_av_statut_act in (" & strQuery & ")"
+
+    nb = toDB.Select(strSqlStatement, lstSiteFact)
+
+    If nb > 0 Then
+        Set lstBds1 = lstSiteFact
+    End If
+    End If
+    Set recupBds1 = lstBds1
+    Exit Function
+Error_Handling:
+   TRUELOG "Erreur n�" & Err.number & ", Ligne="& erl & " Source=" & Err.Source & " Description: " & Err.description
+End Function
+
+'*********************************************************************************************************/
+'Author: Youness AADISSA
+'Date :
+'Description: TRIM_
+'*********************************************************************************************************/
+Function trim_f(strin As String, i As Integer)As String
+On Error Goto Error_Handling
+   trim_f = Rtrim(Item$(strin,i,i,SEPARATOR))
+Exit Function
+Error_Handling:
+   Debug.Print "trim_f:Erreur detect�e ", Err.number, Err.Source, Err.description, Erl
+   Resume Next
+End Function
+'*********************************************************************************************************/
+'Author: Youness AADISSA
+'Date :
+'Description: TRUELOG
+'*********************************************************************************************************/
+Sub TRUELOG(strin As String)
+On Error Goto Error_Handling
+   Open ErrLog For Append Shared As #ErrLogNo
+   Print #ErrLogNo,strin
+   Debug.Print strin
+   Close #ErrLogNo
+   Exit Sub
+Error_Handling:
+   Debug.Print  Err.description
+end sub
+'*********************************************************************************************************/
+'Author: Youness AADISSA
+'Date :
+'Description: TRUEERR
+'*********************************************************************************************************/
+Sub TRUEERR(strin As String)
+On Error Goto Error_Handling
+   Open ErrKO For Append Shared As #ErrLogNo
+   Print #ErrLogNo,strin
+   Close #ErrLogNo
+   Exit Sub
+Error_Handling:
+   Debug.Print  Err.description
+End Sub
+'*********************************************************************************************************/
+'Author: Youness AADISSA
+'Date :    13/12/2002
+'Description: Fonction utilis�e pour transformer un integer en un string de deux caract�res s'il
+'        n'est compos� que d'un seul
+'*********************************************************************************************************/
+Function date2caract (intDate As Integer) As String
+On Error GoTo ErrHandler
+    Dim strDate2Caract As String
+    strDate2Caract = cStr(intDate)
+    If Len(strDate2Caract) = 1 Then
+        strDate2Caract = "0" & strDate2Caract
+    End If
+    date2caract = strDate2Caract
+    Exit Function
+ErrHandler:
+    TRUELOG "Erreur dans la conversion de : " & intDate & "en deux caract�res"
+End function
+'*********************************************
+'*** Function:    Date_Comparaison
+'*** Name:    Youness AADISSA
+'*** DATE:
+'*** DESCRIPION:
+'*** NOTES     : Teste si la date (sans tenir compte des heures) pass�e en entr�e est "sup", "inf" ou "eg" � la date du jour
+'**********************************************
+Function Date_Comparaison(varDate As Variant, operator As String, optional egal) As Boolean
+On Error Goto Error_Handling
+    Dim dtCurrent   As Date
+    Dim dtCompar    As Date
+    Dim intDate     As Integer
+
+    Date_Comparaison = False
+    If varDate = "*/*/* *:*:*" Then
+        Date_Comparaison = True
+        Exit Function
+    End If
+    dtCurrent = App.CurrentDate
+    dtCompar = vStr2Date(varDate)
+
+    If Year(dtCompar) = 1753 Then     'Si la date est vide, le test est correct
+        Date_Comparaison = True
+        Exit Function
+    End If
+
+    intDate = DateDiff("d", dtCompar, dtCurrent)
+    Select Case intDate
+        Case 0
+            If Not isMissing (egal) Or operator = "eg" Then Date_Comparaison = True
+        Case Is > 0
+            If operator = "inf" Then Date_Comparaison = True
+        Case Is < 0
+            If operator = "sup" Then Date_Comparaison = True
+    End Select
+
+Exit Function
+Error_Handling:
+    TRUELOG "Date : [" & varDate & "], Op�rateur : [" & operator & "] - Erreur n�" & Err.number & ", Ligne="& erl & " Source=" & Err.Source & "Description: " & Err.description
+End Function
+'*********************************************************************************************************/
+'Author: Youness AADISSA
+'Date :
+'Description: check Date format
+'*********************************************************************************************************/
+Sub vCheckDateFormat()
+    Dim zTestDate           As String        ' Need a String for Summit test
+    Dim nDay                As Integer
+    Dim nSummitDateFormat   As Integer
+    Dim nPOMSDateFormat     As Integer
+
+    If gzClarifyDateFormat <> "" Then
+        Exit Sub
+    End If
+    nDay = Day( "01/02/03" )
+    Select Case nDay
+        Case 1
+            nSummitDateFormat = DATE_DDMMYY
+        Case 2
+            nSummitDateFormat = DATE_MMDDYY
+        Case 3
+            nSummitDateFormat = DATE_YYMMDD
+    End Select
+    gzClarifyDateFormat = vGetPOMSDateFormat()
+    Select Case Left(gzClarifyDateFormat, 2)
+        Case "%d"
+            nPOMSDateFormat = DATE_DDMMYY
+        Case "%m"
+            nPOMSDateFormat = DATE_MMDDYY
+        Case "%y", "%Y"
+            nPOMSDateFormat = DATE_YYMMDD
+        Case Else
+            nPOMSDateFormat = DATE_MMDDYY
+    End Select
+    Select Case nPOMSDateFormat
+        Case DATE_MMDDYY
+            Select Case nSummitDateFormat
+                Case DATE_MMDDYY
+                    gbSwapDaysAndMonths = False
+                Case DATE_DDMMYY
+                    gbSwapDaysAndMonths = True
+                Case DATE_YYMMDD
+                    gbSwapDaysAndMonths = True
+            End Select
+        Case DATE_DDMMYY
+            Select Case nSummitDateFormat
+                Case DATE_MMDDYY
+                    gbSwapDaysAndMonths = True
+                Case DATE_DDMMYY
+                    gbSwapDaysAndMonths = False
+                Case DATE_YYMMDD
+                    gbSwapDaysAndMonths = False
+            End Select
+        Case DATE_YYMMDD
+            Select Case nSummitDateFormat
+                Case DATE_MMDDYY
+                    gbSwapDaysAndMonths = False
+                Case DATE_DDMMYY
+                    gbSwapDaysAndMonths = False
+                Case DATE_YYMMDD
+                    gbSwapDaysAndMonths = False
+            End Select
+    End Select
+End Sub
+'*********************************************************************************************************/
+'Author: Youness AADISSA
+'Date :
+'Description: String To Date
+'*********************************************************************************************************/
+Function vStr2Date( ByVal azDate As String ) As Date
+    Dim nDay        As Integer
+    Dim nMonth      As Integer
+    Dim nYear       As Integer
+    Dim nHour       As Integer
+    Dim nMinute     As Integer
+    Dim nSecond     As Integer
+    Dim dDate       As Date
+    If azDate = "?/?/? ?:?:?" Then
+        vStr2Date = #01/01/1753#    ' Unset date in the past
+        Exit Function
+    ElseIf azDate = "*/*/* *:*:*" Then
+        vStr2Date = #31/12/4712#    ' Unset date in the future
+        Exit Function
+    ElseIf Not IsDate( azDate ) Then
+        vStr2Date = #01/01/1753#    ' Not a valid date
+        Exit Function
+    End If
+    vCheckDateFormat
+    nDay = Day( azDate )
+    If nDay <= 12 And gbSwapDaysAndMonths Then
+        nMonth  = nDay
+        nDay    = Month( azDate )
+        nYear   = Year( azDate )
+        nHour   = Hour( azDate )
+        nMinute = Minute( azDate )
+        nSecond = Second( azDate )
+        dDate   = DateSerial( nYear, nMonth, nDay )
+        dDate   = DateAdd( "h", nHour,   dDate )
+        dDate   = DateAdd( "n", nMinute, dDate )
+        dDate   = DateAdd( "s", nSecond, dDate )
+    Else
+        dDate = CDate( azDate )
+    End If
+    vStr2Date = dDate
+End Function
+'*********************************************************************************************************/
+'Author: Youness AADISSA
+'Date :
+'Description: Date To String
+'*********************************************************************************************************/
+Function vDate2Str( ByVal adDate As Date ) As String
+    Dim nDay        As Integer
+    Dim nMonth      As Integer
+    Dim nYear       As Integer
+    Dim nHour       As Integer
+    Dim nMinute     As Integer
+    Dim nSecond     As Integer
+    Dim zDate       As String
+    Dim nIndex      As Integer
+    vCheckDateFormat
+    nDay    = Day( adDate )
+    nMonth  = Month( adDate )
+    nYear   = Year( adDate )
+    nHour   = Hour( adDate )
+    nMinute = Minute( adDate )
+    nSecond = Second( adDate )
+    zDate = gzClarifyDateFormat
+    nIndex = Instr( zDate, "%d" )
+    If nIndex = 0 Then
+        vDate2Str = CStr( adDate )
+        Exit Function
+    End If
+    zDate = Left$( zDate, nIndex - 1) & Format( nDay, "00" ) & Mid$( zDate, nIndex + 2 )
+    nIndex = Instr( zDate, "%m" )
+    If nIndex = 0 Then
+        vDate2Str = CStr( adDate )
+        Exit Function
+    End If
+    zDate = Left$( zDate, nIndex - 1) & Format( nMonth, "00" ) & Mid$( zDate, nIndex + 2 )
+    nIndex = Instr( zDate, "%y" )
+    If nIndex = 0 Then
+        nIndex = Instr( zDate, "%Y" )
+        If nIndex = 0 Then
+            vDate2Str = CStr( adDate )
+            Exit Function
+        End If
+        zDate = Left$( zDate, nIndex - 1) & Format( nYear, "0000" ) & Mid$( zDate, nIndex + 2 )
+    Else
+        zDate = Left$( zDate, nIndex - 1) & Format( nYear mod 100, "00" ) & Mid$( zDate, nIndex + 2 )
+    End If
+    If (nHour + nMinute + nSecond) > 0 Then
+        zDate = zDate & " " & Format( nHour, "00" ) & ":" & Format( nMinute, "00" ) & ":" & Format( nSecond, "00" )
+    End If
+    vDate2Str = zDate
+End Function
+
+Function vGetPOMSDateFormat() As String
+    Dim zDateFormat As String
+    zDateFormat = Environ$( "CLARIFY_DATE_FORMAT" )
+    If zDateFormat = "" Then
+        zDateFormat = "%m/%d/%y"
+    End If
+    vGetPOMSDateFormat = zDateFormat
+End Function
+
+'*********************************************************************/
+'Author:Youness AADISSA
+'Description:  R�cuperer l'objid du lot
+'*********************************************************************/
+Function recupeObjiId(strContrat As String, strLot As String) As String
+On Error GoTo Error_Handling
+
+    Dim br    As New BulkRetrieve
+    Dim lst    As List
+    Dim rec    As record
+
+    '--Aho RCE Lot2 : Pour �viter qu'un x_av_id_install soit non-unique en base,
+    '                 l'objid du lot est recherch� avec l'id install et dans le contrat donn�
+    br.SimpleQuery 0,"contract"
+    br.AppendFilter 0, "id", cbEqual, strContrat
+    br.TraverseFromParent 1, "contract2contr_schedule", 0
+    br.AppendFilter 1,"x_av_id_install", cbequal, strLot
+    br.RetrieveRecords
+    Set lst = br.GetRecordList(1)
+    Set rec = lst.ItemByIndex (0)
+    recupeObjiId = rec.getField("objid")
+    Exit Function
+Error_Handling:
+    TRUELOG "Erreur n�" & Err.number & ", Ligne="& erl & " Source=" & Err.Source & " Description: " & Err.description
+End Function
+'*********************************************************************/
+'Author: Youness AADISSA
+'Description: v�rifier l'existance des lots
+'Input :
+'Output : Boolean
+'Update:
+'*********************************************************************/
+Function chkExLot(strLot As String, strType As String) As Boolean
+On Error GoTo Error_Handling
+
+    Dim brLot    As New Bulkretrieve
+    Dim lstLot   As List
+
+    'strmessage = ""
+
+    brLot.simplequery 0, "contr_schedule"
+    brLot.appendfilter 0, "x_av_id_install", cbEqual, strLot
+    brLot.retrieverecords
+
+    Set lstLot = brLot.getRecordlist(0)
+    If lstLot.count > 0 Then
+        chkExLot = True
+    Else
+        chkExLot = False
+        strmessage = "lot " & strType & " inexistant : " & strLot
+    End if
+    Exit Function
+Error_Handling:
+   TRUELOG "Erreur n�" & Err.number & ", Ligne="& erl & " Source=" & Err.Source & " Description: " & Err.description
+End Function
+'*********************************************************************/
+'Author: Youness AADISSA
+'Description: v�rifier l'existance du contrat
+'Input :
+'Output : Boolean
+'Update:
+'*********************************************************************/
+Function chkExContrat(strID As String, strType As String) As Boolean
+On Error GoTo Error_Handling
+
+    Dim brContrat    As new Bulkretrieve
+    Dim lstContrat   As List
+
+    'strmessage = ""
+
+    brContrat.simplequery 0, "contract"
+    brContrat.appendfilter 0, "id", cbEqual, strID
+    brContrat.retrieverecords
+
+    Set lstContrat = brContrat.getRecordlist(0)
+    If lstContrat.count > 0 Then
+        chkExContrat = True
+    Else
+        chkExContrat = False
+        strmessage = "Contrat " & strType & " inexistant : " & strID
+    End If
+    Exit Function
+Error_Handling:
+   TRUELOG "Erreur n�" & Err.number & ", Ligne="& erl & " Source=" & Err.Source & " Description: " & Err.description
+End Function
+'*********************************************************************/
+'Author: Youness AADISSA
+'Description: V�rifier l'appartenace du lot au contrat
+'Input :
+'Output : Boolean
+'Update:
+'*********************************************************************/
+Function chkContratLot(strID As String, strLot As String) As Boolean
+On Error GoTo Error_Handling
+
+    Dim brLot    As new Bulkretrieve
+    Dim lstLot   As List
+
+    'strmessage = ""
+
+    brLot.simplequery 0, "contr_schedule"
+    brLot.appendfilter 0, "x_av_id_install", cbEqual, strLot
+    brLot.TraverseFromParent 1, "schedule2contract", 0
+    brLot.appendfilter 1, "id", cbEqual, strID
+    brLot.retrieverecords
+
+    set lstLot = brLot.getRecordlist(1)
+    If lstLot.count > 0 Then
+        chkContratLot = True
+    Else
+        chkContratLot = False
+        strmessage = "le lot " & strLot & " n'appartient pas au contrat " & strID
+    End if
+    Exit Function
+Error_Handling:
+   TRUELOG "Erreur n�" & Err.number & ", Ligne="& erl & " Source=" & Err.Source & " Description: " & Err.description
+End Function
+
+'*********************************************************************/
+'Author: Youness AADISSA
+'Description:
+'Input : check sur les demandes en cours au cours d'un changement de titulaire en masse
+'Output : Boolean
+'Update:
+'*********************************************************************/
+Function checkChangementTituEnCours( bdssource As String) As Boolean
+On  Error GoTo Error_Handling
+
+    Dim listdemande As New list
+    Dim toDB        As New SQLDB
+    Dim strSQLStatement As String
+    Dim whichBtn        As Integer
+
+    listdemande.ItemType = "String"
+
+    strSQLStatement = " SELECT objid" & _
+                      " FROM table_contr_itm" & _
+                      " WHERE objid = " & bdssource & _
+                      " AND (EXISTS (" & _
+                      "     SELECT objid" & _
+                      "     FROM table_x_av_suivi_chmt_cf chmt" & _
+                      "     WHERE chmt.x_av_focus_id = table_contr_itm.objid" & _
+                      "       AND chmt.x_av_status = 'A traiter'" & _
+                      "       AND chmt.x_av_type IN ('Changement Payeur', 'Changement Titulaire'))" & _
+                      "  OR EXISTS(" & _
+                      "     SELECT itm.objid" & _
+                      "     FROM table_contr_itm itm," & _
+                      "          table_x_av_suivi_chmt_cf chmt" & _
+                      "     WHERE chmt.x_av_focus_id = itm.objid" & _
+                      "       AND itm.child2contr_itm = table_contr_itm.objid" & _
+                      "       AND chmt.x_av_status = 'A traiter'" & _
+                      "       AND chmt.x_av_type IN ('Changement Payeur', 'Changement Titulaire'))" & _
+                      "     )"
+
+    toDB.Select strSQLStatement, listdemande
+
+    If listdemande.Count > 0 Then
+        checkChangementTituEnCours = True
+    Else
+        checkChangementTituEnCours = False
+    End If
+    Set toDB = Nothing
+    Set listdemande = Nothing
+    strSQLStatement = ebnullstring
+Exit Function
+Error_Handling:
+   TRUELOG "Erreur n�" & Err.number & ", Ligne="& erl & " Source=" & Err.Source & " Description: " & Err.description
+end function
+'*********************************************************************/
+'Author: Youness AADISSA
+'Description:
+'Input : V�rifier qu'il n'existe pas de commande Price de type CPTA , RESUS, OFSU ,COPT , REMB ou FACT
+'Output : Boolean
+'Update: Imane AAJAIL
+'*********************************************************************/
+Function checkADGEnCours(ideds As String) As Boolean
+On  Error GoTo Error_Handling
+    Dim listBDSADG  As New List
+    Dim strSqlStatement As string
+    Dim toDB            As New SQLDB
+    Dim br              As New Bulkretrieve
+    Dim lstTmp          As New List
+    Dim strAdgNonCum    As String
+
+    listBDSADG.ItemType = "String"
+
+    br.Clear
+    br.SimpleQuery 0, "x_av_code"
+    br.AppendFilter 0, "x_av_type", Cbequal, "ADG_NON_CUMULABLE_ADMIN"
+    br.RetrieveRecords
+   Set lstTmp = br.GetRecordlist (0)
+   strAdgNonCum = ListCodeToString (lstTmp, "x_av_code", "'")
+
+    strSqlStatement = " SELECT cmde.x_pr_id_commande" & _
+                      " FROM table_x_pr_ligne_commande ligne," & _
+                      " table_x_pr_commande cmde" & _
+                      " WHERE ligne.x_pr_id_ligne = '" & ideds & "'" & _
+                      " AND cmde.objid=ligne.x_pr_ligne2commande"&_
+                      " AND ligne.x_pr_status in ('TO','TEC','AO','AEC','TOK') " &_
+                      " AND cmde.x_pr_adg in ( " & strAdgNonCum & " )" & _
+                      " AND cmde.x_pr_date_effet > SYSDATE"
+
+    toDB.Select strSQLStatement, listBDSADG
+
+
+    If listBDSADG.Count > 0 Then
+        checkADGEnCours = True
+        TRUELOG "il existe une commande Price de type CPTA , RESUS, OFSU ,COPT , REMB ou FACT"
+    Else
+        checkADGEnCours = False
+        TRUELOG "il n'existe pas de commande Price de type CPTA , RESUS, OFSU ,COPT , REMB ou FACT"
+    End If
+    Exit Function
+Error_Handling:
+   TRUELOG "Erreur n�" & Err.number & ", Ligne="& erl & " Source=" & Err.Source & " Description: " & Err.description
+End Function
+'*********************************************************************/
+'Author: Youness AADISSA
+'Description:
+'Input : ?    Si le site de facturation du lot cible a un terme diff�rent de celui de l�ancien site de facturation
+'Output : Boolean
+'Update:
+'*********************************************************************/
+Function chkTerme(IdLotSource As String,IdLotCible As String) As Boolean
+On Error GoTo Error_Handling
+    Dim br              As New bulkRetrieve
+    Dim rec             As New Record
+    Dim lst             As New List
+    Dim TermeSiteSrc    As String
+    Dim TermeSiteCible  As String
+
+    br.SimpleQuery 0, "contr_schedule"
+    br.AppendFilter 0, "objid", Cbequal, IdLotSource
+    br.TraverseFromParent 1, "bill_to2site", 0
+    br.RetrieveRecords
+
+    Set lst = br.GetRecordList(1)
+    Set rec = lst.ItemByIndex(0)
+    TermeSiteSrc = rec.GetField("x_av_terme")
+
+    br.Clear
+    br.SimpleQuery 0, "contr_schedule"
+    br.AppendFilter 0, "objid", Cbequal, IdLotCible
+    br.TraverseFromParent 1, "bill_to2site", 0
+    br.RetrieveRecords
+
+    Set lst = br.GetRecordList(1)
+    Set rec = lst.ItemByIndex(0)
+    TermeSiteCible = rec.GetField("x_av_terme")
+
+    If TermeSiteCible = TermeSiteSrc Then
+        chkTerme = True
+    Else
+        chkTerme = False
+        strmessage = "Le nouveau CF n'a pas la m�me valeur du champ � Terme � que le CF d'origine"
+    End If
+    Set br  = Nothing
+    Set rec = Nothing
+    Set lst = Nothing
+Exit Function
+Error_Handling:
+    TRUELOG "Erreur n�" & Err.number & ", Ligne="& erl & " Source=" & Err.Source & " Description: " & Err.description
+End Function
+'*********************************************************************/
+'Author: Youness AADISSA
+'Date :
+'Description: Convertir une liste en string s�par�es par "Separateur"
+'*********************************************************************/
+Function ListCodeToString1(LstTmp As List, Separateur As String) As String
+On Error GoTo Error_Handling
+    Dim recTmp As String
+    Dim StrChaine As String
+    Dim i As Integer
+    For i = 0 To LstTmp.Count - 1
+        recTmp = LstTmp.itembyindex(i)
+        If i = 0 Then
+            StrChaine = Separateur & recTmp & Separateur
+        Else
+            StrChaine = StrChaine & ", " & recTmp & Separateur
+        End If
+    Next i
+    ListCodeToString1 = StrChaine
+    Exit Function
+Error_Handling:
+   TRUELOG "Erreur n�" & Err.number & ", Ligne="& erl & " Source=" & Err.Source & " Description: " & Err.description
+End Function
+'*********************************************************************/
+'Author: Youness AADISSA
+'Date :
+'Description: Controles sur le site de facturation et d'installation du lot cible
+'*********************************************************************/
+Function chkCF(IdLotSource As String,IdLotCible As String,IdContratCible As String) As Boolean
+On Error GoTo Error_Handling
+    Dim br          As New BulkRetrieve
+    Dim recCFCible  As New Record
+    Dim recContrat  As New Record
+    Dim recCUCible  As New Record
+    Dim lstTmp      As New List
+    Dim lstParameters   As New List
+    Dim toDB            As New SQLDB
+
+    br.Clear
+    br.SimpleQuery  0, "contract"
+    br.AppendFilter 0, "id", cbEqual, IdContratCible
+    br.SimpleQuery  1, "contr_schedule"
+    br.AppendFilter 1, "objid", cbEqual, IdLotCible
+    br.TraverseFromParent 2, "bill_to2site", 1
+    br.TraverseFromParent 3, "ship_to2site", 1
+    br.RetrieveRecords
+
+    Set lstTmp     = br.GetRecordList(0)
+    Set recContrat = lstTmp.ItemByIndex(0)
+    Set lstTmp = br.GetRecordList(2)
+    If lstTmp.Count <> 1 Then
+        strmessage = "Probl�me lors de la r�cup�ration du CF"
+        chkCF = False
+        GoTo Clrobject
+    End If
+    Set recCFCible = lstTmp.ItemByIndex(0)
+    Set lstTmp = br.GetRecordList(3)
+    If lstTmp.Count <> 1 Then
+        strmessage = "Probl�me lors de la r�cup�ration du CU"
+        chkCF = False
+        GoTo Clrobject
+    End If
+    Set recCUCible = lstTmp.ItemByIndex(0)
+    lstParameters.Clear
+    lstParameters.ItemType = "variant"
+    lstParameters.AppendItem recCFCible.GetField("objid"), recCUCible.GetField("objid"), recContrat.GetField("objid")
+    toDB.ExecuteProc "SA.VERIF_CF", lstParameters, typResponse
+    If typResponse.response <> "" Then
+        strmessage = typResponse.response
+        chkCF = False
+        GoTo Clrobject
+    End If
+
+    If Not chkTerme(IdLotSource,IdLotCible) Then
+        chkCF = False
+        GoTo Clrobject
+    End If
+
+    chkCF = True
+Clrobject :
+    Set br          = Nothing
+    Set recCFCible  = Nothing
+    Set recContrat  = Nothing
+    Set recCUCible  = Nothing
+    Set lstTmp      = Nothing
+    Exit Function
+Error_Handling:
+   TRUELOG "Erreur n�" & Err.number & ", Ligne="& erl & " Source=" & Err.Source & " Description: " & Err.description
+End Function
+'*********************************************************************/
+'Author: Youness AADISSA
+'Date :
+'Description:     R�cup�ration de lignes du lot source sur lesquelles un changement de titulaire sera r�alis�
+'Update : Imane,AAJAIL 17/08/2011
+'*********************************************************************/
+Function traitementDde(ObjidLotSource As String, ObjidLotCible As String, ObjidLigne As String, SdateEffet As String) As Boolean
+On Error GoTo Error_Handling
+    Dim lstBDS          As New List
+    Dim toDB            As New SQLDB
+    Dim strSQLStatement As String
+    Dim strSQLCible     As String
+    Dim br              As New Bulkretrieve
+    Dim lstTmp          As New List
+    Dim lstTmp2         As New List
+    Dim i               As Integer
+    Dim strCoffreDefaut As String
+    Dim strActe1        As String
+    Dim strStatutAct1   As String
+    Dim strStatutFact1  As String
+    Dim strActe2        As String
+    Dim strStatutAct2   As String
+    Dim strStatutFact2  As String
+    Dim IdBDSSource     As String
+    Dim IdEDSSource     As String
+    Dim IdEDSSourceMig  As String
+    Dim IdSiteCible     As String
+    Dim strCrossRef     AS String
+    Dim TypeBDSSource   As String
+	Dim strActe2Csim    As String
+	Dim strcodEtat2Csim As String
+
+
+    traitementDde = False
+
+    br.Clear
+    br.SimpleQuery 0, "x_av_code"
+    br.AppendFilter 0, "x_av_type", Cbequal, "LISTE_ID_COFFRE_DEFAUT"
+    br.SimpleQuery 1, "x_av_code"
+    br.AppendFilter 1, "x_av_type", Cbequal, "LISTE_STATUT_BDS1_ACTE"
+    br.AppendFilter 1, "x_av_code_2", Cbequal, "CTI_CPA"
+    br.SimpleQuery 2, "x_av_code"
+    br.AppendFilter 2, "x_av_type", Cbequal, "LISTE_STATUT_BDS1_CF_STAT_ACTE"
+    br.SimpleQuery 3, "x_av_code"
+    br.AppendFilter 3, "x_av_type", Cbequal, "LISTE_STATUT_BDS1_STAT_MAT"
+    br.SimpleQuery 4, "x_av_code"
+    br.AppendFilter 4, "x_av_type", Cbequal, "LISTE_STATUT_BDS2_ACTE"
+    br.SimpleQuery 5, "x_av_code"
+    br.AppendFilter 5, "x_av_type", Cbequal, "LISTE_STATUT_BDS2_CF_STAT_ACTE"
+    br.SimpleQuery 6, "x_av_code"
+    br.AppendFilter 6, "x_av_type", Cbequal, "LISTE_STATUT_BDS2_STAT_MAT"
+    br.SimpleQuery 7, "x_av_code"
+    br.AppendFilter 7, "x_av_type", Cbequal, "BDS_INTERDITES_PR_CTI_ORG_DIFF"
+    br.RetrieveRecords
+	br.SimpleQuery 8, "x_av_code"
+    br.AppendFilter 8, "x_av_type", Cbequal, "LISTE_STATUT_BDS2_ACTE_CSIM"
+    br.RetrieveRecords
+	br.SimpleQuery 9, "x_av_code"
+    br.AppendFilter 9, "x_av_type", Cbequal, "LISTE_STATUT_BDS2_CODE_ETAT_CSIM"
+    br.RetrieveRecords
+	
+
+    Set lstTmp = br.GetRecordlist (0)
+    strCoffreDefaut = ListCodeToString (lstTmp, "x_av_code", "'")
+    Set lstTmp = br.GetRecordlist (1)
+    strActe1 = ListCodeToString (lstTmp, "x_av_code", "'")
+    Set lstTmp = br.GetRecordlist (2)
+    strStatutAct1 = ListCodeToString (lstTmp, "x_av_code", "'")
+    Set lstTmp = br.GetRecordlist (3)
+    strStatutFact1 = ListCodeToString (lstTmp, "x_av_code", "'")
+    Set lstTmp = br.GetRecordlist (4)
+    strActe2 = ListCodeToString (lstTmp, "x_av_code", "'")
+    Set lstTmp = br.GetRecordlist (5)
+    strStatutAct2 = ListCodeToString (lstTmp, "x_av_code", "'")
+    Set lstTmp = br.GetRecordlist (6)
+    strStatutFact2 = ListCodeToString (lstTmp, "x_av_code", "'")
+	Set lstTmp = br.GetRecordlist (8)
+    strActe2Csim = ListCodeToString (lstTmp, "x_av_code", "'")
+	Set lstTmp = br.GetRecordlist (9)
+    strcodEtat2Csim = ListCodeToString (lstTmp, "x_av_code", "'")
+
+
+
+    strSqlStatement = " SELECT ci.objid||'|'||ci.x_av_id_eds||'|'||pn.x_av_cross_ref||'|'||ci.x_av_type_article" & _
+                      " FROM table_contr_itm ci," & _
+                      "      table_mod_level ml," & _
+                      "      table_part_num pn" & _
+                      " WHERE ci.contr_itm2mod_level = ml.objid" & _
+                      " AND ml.part_info2part_num = pn.objid" & _
+                      " AND ci.contr_itm2contr_schedule = " & ObjidLotSource
+	If (Len(Trim(ObjidLigne)) > 0) Then
+		strSqlStatement = strSqlStatement  & _
+                      " AND ci.objid = " & ObjidLigne
+	End If
+	strSqlStatement = strSqlStatement  & _
+                      " AND ci.child2contr_itm IS NULL" & _
+                      " AND NVL(ci.x_av_o_scs, 0) = 0" & _
+                      " " & _
+                      " AND pn.x_av_part_prov_level = 'SI'" & _
+                      " AND ( ci.x_av_categorie IN ('" & strMobile & "','" & strAcces & "') OR (ci.x_av_categorie = '" & strFixe & "' AND ci.x_av_itm2acces IS NULL) )" & _
+                      " AND ci.x_av_statut_act   IN ( " & strActe1 & " )" & _
+                      " AND ci.x_av_etat_act     IN ( " & strStatutAct1 & " )" & _
+                      " AND ci.x_av_statut_mat   IN ( " & strStatutFact1 & " )" & _
+                      " AND NOT EXISTS (" & _
+										"     SELECT itm2.objid FROM table_contr_itm itm2," & _
+										"      			table_mod_level ml," & _
+										"      			table_part_num pn" & _
+										"     WHERE itm2.child2contr_itm = ci.objid " & _
+										" 		AND itm2.contr_itm2mod_level = ml.objid " & _
+										" 		AND ml.part_info2part_num = pn.objid " & _
+										"AND ( " & _
+										"itm2.x_av_statut_act NOT IN (" & strActe2 & ")" & _
+										"OR itm2.x_av_etat_act NOT      IN ( " & strStatutAct2 & ")" & _
+										"OR itm2.x_av_statut_mat NOT    IN ( " & strStatutFact2 & ") " & _
+										")" & _
+										"AND( " & _
+										"pn.x_av_cross_ref         <> 'NCSIICC'" & _
+										"OR( " & _
+										"itm2.x_av_statut_act <> 'A Cr�er' " & _
+										"or itm2.x_av_code_etat <> 'OK_SAP' " & _
+										")"& _
+										") )"
+
+    lstBDS.ItemType = "String"
+    toDB.Select strSqlStatement, lstBDS
+
+    '**** Move4 V2.3 MSIM AEL : Recupere les lignes secondaires    **** Mv 5.2 OKH CJUM
+    If lstBDS.Count > 0 Then
+        For i = 0 To lstBDS.Count - 1
+            IdBDSSource     = trim_f(lstBDS.itembyindex(i), 1)
+            IdEDSSourceMig  = trim_f(lstBDS.itembyindex(i), 2)
+            TypeBDSSource   = trim_f(lstBDS.itembyindex(i), 4)
+            '*****Interdire le changement de titulaire pour une ligne en cours de migration
+            If checkMigration(IdEDSSourceMig) Then
+                traitementDde = False
+                strmessage = "Cette ligne " & IdEDSSourceMig & " a une migration initi�e�"
+                Exit Function
+            End If
+
+            If TypeBDSSource = "1" then
+                strSqlStatement = " SELECT ls.objid||'|'||ls.x_av_id_eds||'|'||pn.x_av_cross_ref||'|'||ls.x_av_type_article" & _
+                                  " FROM table_contr_itm lp," & _
+                                  "      table_contr_itm ls," & _
+                                  "      table_x_av_code code," & _
+                                  "      table_mod_level ml," & _
+                                  "      table_part_num  pn," & _
+                                  "      table_n_attributevalue attr," & _
+								  "      table_x_av_code xav," & _
+                                  "      table_n_properties prop" & _
+                                  " WHERE lp.child2contr_itm      = " & IdBDSSource & _
+                                  " AND lp.contr_itm2mod_level    = ml.objid" & _
+                                  " AND ml.part_info2part_num     = pn.objid" & _
+                                  " AND pn.x_av_cross_ref         = code.x_av_code" & _
+                                  " AND code.x_av_type            = 'BDS2_BUNDLE'" & _
+								  " AND code.x_av_libelle 		  = 'Option Multi Sim MOVE'" & _
+                                  " AND attr.n_focuslowid         = lp.objid" & _
+                                  " AND attr.x_av_value2n_properties = prop.objid" & _
+                                  " AND prop.x_av_cross_ref       = code.x_av_code_2" & _
+                                  " AND ls.objid                  = attr.n_targetlowid" & _
+                                  " AND ls.child2contr_itm        IS NULL" & _
+								  " AND xav.x_av_type               = 'TYPE_LIGNE_SECONDAIRE' " & _
+                                  " AND ls.x_av_type_article      = xav.x_av_num "
+
+                lstTmp2.ItemType = "String"
+                toDB.Select strSqlStatement, lstTmp2
+				lstBDS.AppendItem lstTmp2
+            End If
+        Next i
+
+        '**** Move4 V2.3 MSIM AEL : FIN
+        For i = 0 To lstBDS.Count - 1
+            IdBDSSource     = trim_f(lstBDS.itembyindex(i), 1)
+            IdEDSSource     = trim_f(lstBDS.itembyindex(i), 2)
+            TypeBDSSource   = trim_f(lstBDS.itembyindex(i), 4)
+			
+			TRUELOG " Traitement de la BDS : " & IdBDSSource
+			
+            If TypeBDSSource = "1" then
+                If checkChangementTituEnCours(IdBDSSource) Then
+                    'TRUELOG "Demande de changement de titulaire ou de payeur en cours "
+                    traitementDde = False
+                    strmessage = "Demande de changement de titulaire ou de payeur en cours"
+                    Exit Function
+                End If
+                'TRUELOG " Pas de Demande de changement de titulaire ou de payeur en cours "
+                If checkADGEnCours(IdEDSSource) Then
+                    traitementDde = False
+                    strmessage = "une commande de changement de PTA , changement Option ,r�siliation � �ch�ance ou offre de suspension est en attente ou en cours de traitement"
+                    Exit Function
+                End If
+            End If
+            '[MOVE ET4 V1] : Interdire le changement de titulaire pour une ligne ayant une BDS2 Active ou en cours d'activation
+            ' cf spec : CLFY_0317_SFS_Processus_de_modification_de_structure_client_mobile_PRICE_V06.2_En_cours_Etape_4
+            ' & 2.2.2.4.2
+			'debug.print "If Not checkBDS2ParcDuo2(Clng(IdBDSSource)) Then -->  IdBDSSource : " & IdBDSSource & " IdEDSSource : " & IdEDSSource
+            'If Not checkBDS2ParcDuo(IdBDSSource,IdEDSSource) Then
+			
+			parcduo = True
+			
+			If Not checkBDS2ParcDuo2(Clng(IdBDSSource), False) Then
+                parcduo = False
+				'TRUELOG "La ligne " & IdBDSSource & " ne contient pas de BDS2 Parc DUO Active ou en cours d'activation."
+                If orgDifferente  Then
+                   If Not checkBdsInterdite(IdEDSSource)  Then
+                      If savedde(IdBDSSource, ObjidLotSource, ObjidLotCible, SdateEffet) Then 
+                         traitementDde = True
+                      Else
+                         strmessage = "probl�me d'enregistrement de la demande de changement pour la ligne "& lstBDS.itembyindex(i)
+                         traitementDde = False
+                      End If
+                   End If
+                Else
+                   If savedde(IdBDSSource, ObjidLotSource, ObjidLotCible, SdateEffet) Then
+					  traitementDde = True
+                   Else
+					  strmessage = "probl�me d'enregistrement de la demande de changement pour la ligne "& lstBDS.itembyindex(i)
+                      traitementDde = False
+                   End If
+                End If
+			Else
+				traitementDde = false
+				strmessage = "L'Acte de changement de titulaire pour la ligne " & lstBDS.itembyindex(i) & " ne peut pas se lancer car une option parc duo est active, merci de la r�silier pr�alablement."
+            End If
+
+        Next i
+    Else
+        strmessage = "Ligne non �ligible au changement de titulaire."
+    End If
+CleanUp:
+    Set lstBDS      = Nothing
+    Set toDB        = Nothing
+    Set br          = Nothing
+    Set lstTmp      = Nothing
+    Set lstTmp2     = Nothing
+    Set toDB        = Nothing
+    strSQLStatement = ebnullstring
+
+Exit Function
+Error_Handling:
+   TRUELOG "Erreur n�" & Err.number & ", Ligne="& erl & " Source=" & Err.Source & " Description: " & Err.description
+End Function
+
+'*********************************************************************/
+'Author: Imane AAJAIL
+'Date :
+'Description: V�rifier que parmi les  lignes mobiles �ligibles du lot source ne poss�dent pas de BDS dont la cross_ref est param�tr�e dans la liste ��BDS_INTERDITES_PR_CTI_ORG_DIFF��
+'*********************************************************************/
+Function checkBdsInterdite(IdEDSSource As String) As Boolean
+On Error GoTo Error_Handling
+
+    Dim strSqlStatement   As String
+    Dim listBDS           As New List
+    Dim toDB              As New SQLDB
+    Dim br                As New Bulkretrieve
+    Dim strBDSInterdites  As String
+    Dim lstTmp            As New List
+    Dim nomLotSource      As String
+    Dim idContratSource   As String
+    Dim objidBdsInterdite As String
+    Dim lst               As New List
+
+
+    checkBdsInterdite = False
+
+    br.Clear
+    br.SimpleQuery 0, "x_av_code"
+    br.AppendFilter 0, "x_av_type", Cbequal, "BDS_INTERDITES_PR_CTI_ORG_DIFF"
+    br.RetrieveRecords
+
+    Set lstTmp = br.GetRecordlist (0)
+    strBDSInterdites = ListCodeToString (lstTmp, "x_av_code", "'")
+	
+    strSqlStatement = " SELECT ci.objid" & _
+                      " FROM table_contr_itm ci," & _
+                      " table_mod_level ml," & _
+                      " table_part_num pn" & _
+                      " WHERE ci.x_av_id_eds = '" & IdEDSSource & "'" & _
+		      " AND nvl(ci.x_av_flag_transfert,0) <> 1"&_
+                      " AND ci.contr_itm2mod_level = ml.objid"&_
+                      " AND ml.part_info2part_num = pn.objid"&_
+                      " AND pn.x_av_cross_ref in ( " &  strBDSInterdites & " )" &_
+                      " AND ci.x_av_statut_act NOT IN ( 'R�sili�' )"
+
+        listBDS.ItemType = "String"
+        toDB.Select strSQLStatement, listBDS
+
+
+  If listBDS.Count  > 0 Then
+           checkBdsInterdite = True
+           objidBdsInterdite=trim_f(listBDS.itembyindex(0), 1)
+           Set lst = recupNomlotIdcontrat(IdEDSSource)
+           nomLotSource = ""
+           idContratSource = ""
+           If lst.Count > 0 Then
+           nomLotSource = trim_f(lst.itembyindex(0), 1)
+           idContratSource = trim_f(lst.itembyindex(0), 2)
+           End If
+           'TRUELOG "La ligne de masterId [" & IdEDSSource & "] du Lot [" & nomLotSource & "] / Contrat [" & idContratSource & "] poss�de une BDS interdite d'objid [" & objidBdsInterdite & "]�: elle n'est pas �ligible au changement de titulaire."
+           strmessage = "La ligne de masterId [" & IdEDSSource & "] du Lot [" & nomLotSource & "] / Contrat [" & idContratSource & "] poss�de une BDS interdite d'objid [" & objidBdsInterdite & "]�: elle n'est pas �ligible au changement de titulaire."
+           Exit Function
+        End If
+
+
+
+Exit Function
+Error_Handling:
+   TRUELOG "Erreur n�" & Err.number & ", Ligne="& erl & " Source=" & Err.Source & " Description: " & Err.description
+End Function
+'*********************************************************************/
+'Author: Imane AAJAIL
+'Date :
+'Description: V�rifier si l'organisation du contrat source est diff�rente de celle du contrat cible
+'*********************************************************************/
+Function checkOrg(strIdContratSource  As String,strIdContratCible   As String) As Boolean
+On Error GoTo Error_Handling
+
+    Dim br                          As New BulkRetrieve
+    Dim lstTmp                      As New List
+    Dim recTmp                      As Record
+    Dim StrOrgSrc                   As String
+    Dim StrOrgCbl                   As String
+
+    br.SimpleQuery  0, "contract"
+    br.AppendFilter 0, "id", cbEqual, strIdContratSource
+    br.TraverseFromParent 1, "sell_to2bus_org", 0
+    br.RetrieveRecords
+
+    Set lstTmp = br.getRecordList(1)
+    If lstTmp.Count = 1 Then
+        Set recTmp = lstTmp.ItemByIndex(0)
+        StrOrgSrc = recTmp.getfield("objid")
+    End If
+
+    br.Clear
+    br.SimpleQuery  0, "contract"
+    br.AppendFilter 0, "id", cbEqual, strIdContratCible
+    br.TraverseFromParent 1, "sell_to2bus_org", 0
+    br.RetrieveRecords
+
+    Set lstTmp = br.getRecordList(1)
+    If lstTmp.Count = 1 Then
+        Set recTmp = lstTmp.ItemByIndex(0)
+        StrOrgCbl = recTmp.getfield("objid")
+    End If
+
+    If StrOrgSrc = StrOrgCbl Then
+        checkOrg = True
+    Else
+        checkOrg = False
+    End if
+
+CleanUp:
+    Set br      = Nothing
+    Set lstTmp  = Nothing
+    Set recTmp  = Nothing
+
+    Exit Function
+Error_Handling:
+   TRUELOG "Erreur n�" & Err.number & ", Ligne="& erl & " Source=" & Err.Source & " Description: " & Err.description
+End Function
+'*********************************************************************/
+'Author: Imane AAJAIL
+'Date :
+'Description: R�cup�rer le couple nom du Lot / id Contrat Source
+'*********************************************************************/
+Function recupNomlotIdcontrat(IdEDSSource As String) As List
+On Error GoTo Error_Handling
+    Dim lst             As New List
+    Dim toDB            As New SQLDB
+    Dim strSQLStatement As String
+
+    strSqlStatement = " SELECT cs.schedule_id||'|'||c.id" & _
+                      " FROM table_contr_itm ci," & _
+                      "      table_contr_schedule cs," & _
+                      "      table_contract c" & _
+                      " WHERE ci.contr_itm2contr_schedule = cs.objid" & _
+                      " AND cs.schedule2contract = c.objid" & _
+                      " AND ci.x_av_id_eds = '" & IdEDSSource & "'" & _
+		      " AND nvl(ci.x_av_flag_transfert,0) <> 1"&_
+                      " AND ci.child2contr_itm IS NULL"
+
+    lst.ItemType = "String"
+    toDB.Select strSqlStatement, lst
+
+    Set recupNomlotIdcontrat = lst
+
+    Exit Function
+Error_Handling:
+   TRUELOG "Erreur n�" & Err.number & ", Ligne="& erl & " Source=" & Err.Source & " Description: " & Err.description
+
+End Function
+' Debut function eel
+'**** MOVE5 V1 EEL : Recuperer les lignes de l'acc�s
+Function GetBdsLigneToAcces(objidAcces As String) As List
+On Error GoTo Error_Handling
+
+    Dim br                  As New BulkRetrieve
+    Dim lstBDSLigne         As New List
+    Dim lstTmp              As New List
+    Dim recBds              As New Record
+    Dim i                   As Integer
+    Dim objidBDSLigne       As Long
+
+    br.Clear
+    br.SimpleQuery 0, "contr_itm"
+    br.AppendFilter 0, "objid", cbEqual, objidAcces
+    br.TraverseFromParent 1, "x_av_acces2itm", 0
+    br.RetrieveRecords
+
+    Set lstTmp = br.GetRecordlist(1)
+    lstBDSLigne.ItemType = "Long"
+    If lstTmp.count > 0 Then
+        For i = 0 To lstTmp.count - 1
+            Set recBds = lstTmp.ItemByIndex(i)
+            objidBDSLigne = recBds.GetField("objid")
+            lstBDSLigne.AppendItem objidBDSLigne
+        Next i
+    End If
+	Set GetBdsLigneToAcces = lstBDSLigne
+    Set br                 = Nothing
+    Exit Function
+Error_Handling:
+   TRUELOG "Erreur n�" & Err.number & ", Ligne="& erl & " Source=" & Err.Source & " Description: " & Err.description
+End Function
+' fin function eel
+
+'*********************************************************************/
+'Author: Youness AADISSA
+'Date :
+'Description: Enregistrer la demande pour chaque ligne
+'*********************************************************************/
+Function savedde(IdBDSSource As String, ObjidLotSource As String, ObjidLotCible As String, SdateEffet As String) As Boolean
+On Error GoTo Error_Handling
+    Dim lstTmp                      As New List
+	Dim lstTmpLigneAcces            As New List''eel
+    Dim br                          As New Bulkretrieve
+    Dim bs                          As New BulkSave
+    Dim recTmp                      As New Record
+    Dim recTmp2                     As New Record
+    Dim recSuivi                    As New Record
+    Dim IdContratSource             As String
+    Dim idCFSource                  As String
+    Dim idCUSource                  As String
+    Dim IdContratcible              As String
+    Dim objidCFCible                As String
+    Dim IDCFCible                   As String
+    Dim objidCUCible                As String
+    Dim toDB                        As New SQLDB
+    Dim lstParameters               As New List
+    Dim i                           As Integer
+    Dim k                           As Integer
+    Dim vFromDate                   As String
+    Dim recNew                      As New Record
+    Dim par_nbrheures               As Integer
+    Dim nbrheure                    As Integer
+    Dim dtdiff                      As Date
+    Dim str_date                    As String
+
+    'Prepeare les data
+    ' - Annuler la demande en cours :
+    Set lstTmp = New List
+    lstTmp.ItemType = "String"
+    lstTmp.AppendItem "Changement Payeur", "Changement Titulaire"
+    br.Clear
+    br.SimpleQuery 0, "x_av_suivi_chmt_cf"
+    br.AppendFilter 0, "x_av_type", cbin, lstTmp
+    br.AppendFilter 0, "x_av_focus_id", cbequal, ObjidLotSource
+    br.AppendFilter 0, "x_av_status", cbequal, "A traiter"
+    br.RetrieveRecords
+    Set lstTmp = br.GetRecordlist(0)
+    If lstTmp.Count  > 0 Then
+        For i = 0 To lstTmp.Count - 1
+            Set recSuivi = lstTmp.ItemByIndex(i)
+            recSuivi.SetField "x_av_status", "Annul�"
+            recSuivi.SetField "x_av_lib_etat", "le " & Cstr(App.CurrentDate)
+            bs.UpdateRecord recSuivi
+            bs.Save
+        Next i
+    End If
+
+    'Mis � jour de la table contr_itm 'eel mettre le flag sur les lignes de l'acces
+    lstTmpLigneAcces.ItemType = "Long"
+
+    br.Clear
+    br.SimpleQuery 0, "contr_itm"
+    br.AppendFilter 0, "objid", cbEqual, IdBDSSource
+    br.RetrieveRecords
+    Set lstTmp = br.GetRecordList(0)
+    Set recTmp = lstTmp.ItemByIndex(0)
+
+    recTmp.SetField "x_av_chgmt_cu_cf", 1
+    bs.UpdateRecord recTmp
+    bs.save
+    'Pour le cas d'un acc�s mettre le flag pour les lignes rattach�es
+    If recTmp.GetField("x_av_categorie") = strAcces then
+        Set lstTmpLigneAcces = GetBdsLigneToAcces(IdBDSSource)
+		' COR C20204866 : Ne pas arr�ter un FUSAC si l'acc�s n'a pas de ligne rattach�e >
+		If lstTmpLigneAcces.Count > 0 Then
+		' COR C20204866 : Ne pas arr�ter un FUSAC si l'acc�s n'a pas de ligne rattach�e <
+			br.Clear
+			br.SimpleQuery 0, "contr_itm"
+			br.AppendFilter 0, "objid", cbin , lstTmpLigneAcces
+			br.RetrieveRecords
+			Set lstTmp = br.GetRecordList(0)
+			For k =0 To lstTmp.Count -1
+				Set recTmp2 = lstTmp.ItemByIndex(k)
+				recTmp2.SetField "x_av_chgmt_cu_cf", 1
+				bs.UpdateRecord recTmp2
+				bs.save
+			Next k
+		' COR C20204866 : Ne pas arr�ter un FUSAC si l'acc�s n'a pas de ligne rattach�e >
+		End If
+		' COR C20204866 : Ne pas arr�ter un FUSAC si l'acc�s n'a pas de ligne rattach�e <
+    End If
+
+	
+
+	'OKH : RCE Mv 5.2 MSIM/CJUM
+	Dim toDBx2 As New SQLDB
+	Dim strSQLStatementSec2	As String
+ 	strSqlStatementSec2 =" SELECT 1 " & _                           
+				" FROM  table_contr_itm LS," & _  
+				" table_x_av_code param " & _                
+				" where LS.objid = " &  recTmp.GetField("objid") & _  
+				" and param.x_av_type='TYPE_LIGNE_SECONDAIRE' "&_
+				" and param.x_av_num = LS.x_av_type_article "		   
+    Dim lstLSec2 As New List
+    lstLSec2.ItemType = "String"
+    toDBx2.Select strSqlStatementSec2, lstLSec2
+	'fin okh
+
+    If (lstLSec2.Count = 0 or recTmp.GetField("x_av_categorie") = strAcces  or recTmp.GetField("x_av_categorie") = strMobile or recTmp.GetField("x_av_categorie") = strFixe)then ' EEL
+        ' - Insertion dans la table x_av_suivi_chmt_cf pour les lignes Standart et principales
+        br.Clear
+        br.SimpleQuery 0, "contr_schedule"
+        br.AppendFilter 0, "objid", cbequal, ObjidLotSource
+        br.TraverseFromParent 1, "schedule2contract", 0
+        br.TraverseFromParent 2, "bill_to2site", 0
+        br.TraverseFromParent 3, "ship_to2site", 0
+        br.RetrieveRecords
+        Set lstTmp = br.GetRecordList(1)
+        Set recTmp = lstTmp.ItemByIndex(0)
+        IdContratSource  = recTmp.GetField("ID")
+
+        Set lstTmp = br.GetRecordList(2)
+        Set recTmp = lstTmp.ItemByIndex(0)
+        idCFSource = recTmp.GetField("site_id")
+
+        Set lstTmp = br.GetRecordList(3)
+        Set recTmp = lstTmp.ItemByIndex(0)
+        idCUSource = recTmp.GetField("site_id")
+
+        br.Clear
+        br.SimpleQuery 0, "contr_schedule"
+        br.AppendFilter 0, "objid", cbequal, ObjidLotCible
+        br.TraverseFromParent 1, "schedule2contract", 0
+        br.TraverseFromParent 2, "bill_to2site", 0
+        br.TraverseFromParent 3, "ship_to2site", 0
+        br.RetrieveRecords
+        Set lstTmp = br.GetRecordList(1)
+        Set recTmp = lstTmp.ItemByIndex(0)
+        IdContratcible  = recTmp.GetField("ID")
+
+        Set lstTmp = br.GetRecordList(2)
+        Set recTmp = lstTmp.ItemByIndex(0)
+        objidCFCible = recTmp.GetField("objid")
+        IDCFCible = recTmp.GetField("site_id")
+
+        Set lstTmp = br.GetRecordList(3)
+        Set recTmp = lstTmp.ItemByIndex(0)
+        objidCUCible = recTmp.GetField("site_id")
+
+
+        '898 NRED
+        str_date = cstr(app.CurrentDate)
+        str_date = Mid$(str_date,1,10)
+        If date_effet = "1" Then
+            vFromDate = str_date
+        '898 NRED END
+        Else
+            'charger les dates d'effets
+            dtdiff = Now()
+            nbrheure = 24 - Hour(dtdiff)
+            If (nbrheure < par_nbrheures) Then
+                vFromDate = Cstr (Format(DateAdd("d", 1, App.CurrentDate), "short Date"))
+            Else
+                vFromDate = App.CurrentDate
+            End If
+
+            Set toDB = New SQLDB
+            lstParameters.Clear
+            lstParameters.ItemType = "variant"
+            lstParameters.AppendItem objidCFCible, date2caract (Day(vFromDate)) & "/" & date2caract (Month(vFromDate)) & "/" & CStr(Year(vFromDate))
+            toDB.ExecuteProc "sa.PROC_X_AV_GET_NEXT_CUTOFF_DATE", lstParameters, typResponseCutOff
+            vFromDate = typResponseCutOff.DateCutOff
+        End If
+
+        If  Len(Trim(SdateEffet)) <> 0 Then ' D EEL
+            vFromDate =  date2caract (Day(SdateEffet)) & "/" & date2caract (Month(SdateEffet)) & "/" & CStr(Year(SdateEffet))
+            'cdate (SdateEffet)
+        end if         ' F EEL M
+
+        Set recNew = New record
+        recNew.RecordType = "x_av_suivi_chmt_cf"
+        recNew.SetField "x_av_type", "Changement Titulaire"
+        recNew.SetField "x_av_id_contract", IdContratSource
+        recNew.SetField "x_av_id_contr_schedule", Clng(ObjidLotSource)
+        recNew.SetField "x_av_focus_id", Clng(IdBDSSource)
+        recNew.SetField "x_av_cu_source", idCUSource
+        recNew.SetField "x_av_cf_source", idCFSource
+        recNew.SetField "x_av_id_contract_cible", IdContratcible 'Contrat cible
+        recNew.SetField "x_av_id_contr_schedule_cible", Clng(ObjidLotCible) 'Lot cible
+        recNew.SetField "x_av_cu_cible", objidCUCible
+        recNew.SetField "x_av_cf_cible", IDCFCible
+        recNew.SetField "x_av_date_effet", vFromDate
+        recNew.SetField "x_av_dem_dt", App.CurrentDate
+        recNew.SetField "x_av_dem_login", App.UserName
+		recNew.SetField "x_av_status", "A traiter"
+        bs.InsertRecord recNew
+        bs.save
+    End If
+    savedde = True
+Exit Function
+Error_Handling:
+   TRUELOG "Erreur n�" & Err.number & ", Ligne="& erl & " Source=" & Err.Source & " Description: " & Err.description
+End Function
+'*********************************************************************/
+'Author: Youness AADISSA
+'Date :    15/01/2010
+'Description: Convertir une liste en string s�par�es par "Separateur"
+'*********************************************************************/
+Function ListCodeToString(LstTmp As List, Field_name As String, Separateur As String) As String
+    Dim recTmp As Record
+    Dim StrChaine As String
+    Dim i As Integer
+    For i = 0 To lstTmp.Count - 1
+        Set recTmp = lstTmp.itembyindex (i)
+        If i = 0 Then
+            StrChaine = Separateur & recTmp.getField(Field_name) & Separateur
+        Else
+            StrChaine = StrChaine & ", " & Separateur & recTmp.getField(Field_name) & Separateur
+        End If
+    Next i
+    ListCodeToString = StrChaine
+End Function
+
+'*********************************************************************/
+'Author: Ahmed El Hamdany
+'Date  : 17/06/2011
+'Description: V�rifier que le contrat cible est li� � un VPN mobile dans le cas o� le contrat source l�est
+'*********************************************************************/
+Function checkVPNContrat(strIdContratSource,strIdContratCible) As Boolean
+On Error GoTo Error_Handling
+    Dim br                          As New BulkRetrieve
+    Dim lstTmp                      As New List
+    Dim lstTmp2                     As New List
+    Dim recTmp                      As Record
+
+
+    br.SimpleQuery  0, "contract"
+    br.AppendFilter 0, "id", cbEqual, strIdContratSource
+    br.TraverseFromParent 1, "x_av_contract2vpn", 0
+    br.RetrieveRecords
+
+    Set lstTmp = br.getRecordList(1)
+
+    br.SimpleQuery  0, "contract"
+    br.AppendFilter 0, "id", cbEqual, strIdContratCible
+    br.TraverseFromParent 1, "x_av_contract2vpn", 0
+    br.RetrieveRecords
+
+    Set lstTmp2 = br.getRecordList(1)
+
+    If lstTmp.Count > 0 Then
+        If lstTmp2.Count > 0 Then
+            checkVPNContrat = True
+            Exit Function
+        Else
+            checkVPNContrat = False
+            Exit Function
+        End If
+    End If
+    checkVPNContrat = True
+Exit Function
+Error_Handling:
+   TRUELOG "Erreur n�" & Err.number & ", Ligne="& erl & " Source=" & Err.Source & " Description: " & Err.description
+
+End Function
+'*********************************************************************/
+'Author      : Imane AAJAIL
+'Date        : 17/08/2011
+'Description : V�rifier qu'il n�existe pas sur la ligne une BDS2 Parc Duo � Active � ou � En cours d�activation �.
+'cf SPEC     : CLFY_0317_SFS_Processus_de_modification_de_structure_client_mobile_PRICE_V06.2_En_cours_Etape_4
+'              & 2.2.2.4.2
+'Update      :
+'*********************************************************************/
+Function checkBDS2ParcDuo(strObjid  As String, strIdEDS As String) As Boolean
+On Error GoTo Error_Handling
+    Dim br                               As New BulkRetrieve
+    Dim lstTmp                           As New List
+    Dim listBDS                          As New List
+    Dim toDB                             As New SQLDB
+    Dim strSqlStatement                  As String
+    Dim strActivPduo                     As String
+    Dim strActivPduoCfAct                As String
+    Dim strActivPduoCfFact               As String
+    Dim strActivEnCoursPduo              As String
+    Dim strActivEnCoursPduoCfAct         As String
+    Dim strActivEnCoursPduoCfFact        As String
+    Dim strParcDuoPRICE                  As String
+
+    checkBDS2ParcDuo = False
+
+    br.Clear
+    br.SimpleQuery 0, "x_av_code"
+    br.AppendFilter 0, "x_av_type", Cbequal, "STATUT_ACTIV_PDUO_ACTE"
+    br.SimpleQuery 1, "x_av_code"
+    br.AppendFilter 1, "x_av_type", Cbequal, "STATUT_ACTIV_PDUO_CF_STAT_ACTE"
+    br.SimpleQuery 2, "x_av_code"
+    br.AppendFilter 2, "x_av_type", Cbequal, "STATUT_ACTIV_PDUO_CF_STAT_FACT"
+    br.SimpleQuery 3, "x_av_code"
+    br.AppendFilter 3, "x_av_type", Cbequal, "STATUT_ACTIV_ENCOURS_PDUO_ACTE"
+    br.SimpleQuery 4, "x_av_code"
+    br.AppendFilter 4, "x_av_type", Cbequal, "STATUT_ACTIV_ENCOURS_PDUO_CF_STAT_ACTE"
+    br.SimpleQuery 5, "x_av_code"
+    br.AppendFilter 5, "x_av_type", Cbequal, "STATUT_ACTIV_ENCOURS_PDUO_CF_STAT_FACT"
+    br.SimpleQuery 6, "x_av_code"
+    br.AppendFilter 6, "x_av_type", Cbequal, "PARC_DUO_PRICE_CROSS_REF"
+    br.RetrieveRecords
+
+    Set lstTmp = br.GetRecordlist (0)
+    strActivPduo = ListCodeToString (lstTmp, "x_av_code", "'")
+    Set lstTmp = br.GetRecordlist (1)
+    strActivPduoCfAct = ListCodeToString (lstTmp, "x_av_code", "'")
+    Set lstTmp = br.GetRecordlist (2)
+    strActivPduoCfFact = ListCodeToString (lstTmp, "x_av_code", "'")
+    Set lstTmp = br.GetRecordlist (3)
+    strActivEnCoursPduo = ListCodeToString (lstTmp, "x_av_code", "'")
+    Set lstTmp = br.GetRecordlist (4)
+    strActivEnCoursPduoCfAct = ListCodeToString (lstTmp, "x_av_code", "'")
+    Set lstTmp = br.GetRecordlist (5)
+    strActivEnCoursPduoCfFact = ListCodeToString (lstTmp, "x_av_code", "'")
+    Set lstTmp = br.GetRecordlist (6)
+    strParcDuoPRICE = ListCodeToString (lstTmp, "x_av_code", "'")
+
+    strSqlStatement = " SELECT ci.objid" & _
+                      " FROM table_contr_itm ci," & _
+                      " table_mod_level ml," & _
+                      " table_part_num pn" & _
+                      " WHERE ci.child2contr_itm = '" & strObjid & "'" & _
+                      " AND ci.contr_itm2mod_level = ml.objid"&_
+                      " AND ml.part_info2part_num = pn.objid"&_
+                      " AND pn.x_av_cross_ref IN ( " &  strParcDuoPRICE & " )" &_
+                      " AND ((ci.x_av_statut_act  IN ( " & strActivPduo  & " )" &_
+                      " AND ci.x_av_etat_act  IN ( " & strActivPduoCfAct  & " )" &_
+                      " AND ci.x_av_status_c2a  IN ( " & strActivPduoCfFact  & " ))" &_
+                      " OR ( ci.x_av_statut_act  IN ( " & strActivEnCoursPduo  & " )" &_
+                      " AND ci.x_av_etat_act  IN ( " & strActivEnCoursPduoCfAct  & " )" &_
+                      " AND ci.x_av_status_c2a  IN ( " & strActivEnCoursPduoCfFact  & " )))"
+
+    listBDS.ItemType = "String"
+    toDB.Select strSqlStatement, listBDS
+
+    If listBDS.Count  > 0 Then
+        checkBDS2ParcDuo = True
+        TRUELOG "La ligne " & strObjid & " contient une BDS2 Parc DUO Active ou en cours d'activation."
+        'Si la ligne poss�de une option Parc Duo active ou En cours d�activation un message d�erreur est 'trac� dans les logs : � La ligne [Master_id  de la ligne] poss�de une option Parc duo active ou en 'cours d�activation �
+        strmessage = "La ligne [" & strIdEDS & "] poss�de une option Parc duo active ou en cours d'activation."
+    End If
+
+    Set br                               = Nothing
+    Set lstTmp                           = Nothing
+    Set listBDS                          = Nothing
+    Set toDB                             = Nothing
+    strSqlStatement                      = ebnullstring
+
+
+Exit Function
+Error_Handling:
+   TRUELOG "Erreur n�" & Err.number & ", Ligne="& erl & " Source=" & Err.Source & " Description: " & Err.description
+End Function
+
+' # 30-05-2017 - KKAN : COR C18284878 - D�but >
+'***********************************************************************************************************/
+'Author      : Kassem KANSOU
+'Date        : 30/05/2017
+'Description : Fonction permettant de v�rifier s'il existe sur une ligne donn�e une BDS2 Parc Duo � Active �.
+'Info	     : C18284878 - Correctif - CTI Option Parc Duo
+'***********************************************************************************************************/
+Function checkBDS2ParcDuo2 (p_Objid As Long, p_contr_schedule_objid As Boolean) As Boolean
+On Error GoTo Error_Handling
+    Dim strSqlStatement As string
+    Dim toDB            As New SQLDB
+    Dim lstBDS          As list
+	Dim strCondition    As string
+    
+	checkBDS2ParcDuo2 = False
+	
+	strCondition = " and cs.objid = " & p_Objid
+	
+	Set lstBDS = New List
+	lstBDS.itemtype = "Long" 'D�fini en dur car n'est pas li� aux fichiers globals
+	
+	if p_contr_schedule_objid then
+		strCondition = " and cs.objid = " & p_Objid
+	else
+		strCondition = " and ci1.objid = " & p_Objid
+	end if
+	
+	strSqlStatement = " select distinct ci1.objid" & _
+                      " FROM table_part_num pn1," & _
+                      "      table_mod_level ml1," & _
+                      "      table_contr_itm ci1," & _
+                      "      table_part_num pn2," & _
+                      "      table_mod_level ml2," & _
+                      "      table_contr_itm ci2," & _
+                      "      table_contr_schedule cs," & _
+                      "      table_contract c," & _
+                      "      table_bus_org bo," & _
+                      "      table_site cu," & _	
+                      "      table_site cf," & _
+                      "      table_n_attributevalue attr," & _
+                      "      table_n_properties prop1" & _
+                      " where pn1.objid = ml1.part_info2part_num" & _
+					  " and ci1.contr_itm2mod_level = ml1.objid" & _
+					  " and pn2.objid = ml2.part_info2part_num" & _
+					  " and ci2.contr_itm2mod_level = ml2.objid" & _
+					  " and ci1.objid = ci2.child2contr_itm" & _
+					  " and cs.objid = ci1.contr_itm2contr_schedule" & _
+					  " and c.objid = cs.schedule2contract" & _
+					  " and c.sell_to2bus_org = bo.objid" & _
+					  " and ci2.x_av_used_by2site = cu.objid(+)" & _
+					  " and ci2.x_av_bill_to2site = cf.objid(+)" & _
+					  " and ci1.objid=attr.n_focuslowid(+)" & _
+					  " and attr.x_av_value2n_properties = prop1.objid(+)" & _
+					  "	and pn2.x_av_install_type like ('%F')" & _
+					  " and ci1.x_av_statut_act ='Cr��'" & _
+					  " and pn2.x_av_cross_ref in ('OPT_SPLIT_PARC_DUO','OPT_DUO_RC')" & _
+					  " and ci2.x_av_arb_status in ('CRE_ARB','MOD_ARB')" & _
+						strCondition
+					  '" and ci1.objid = " & p_Objid 
+    toDB.Select strSqlStatement, lstBDS
+    
+	If lstBDS.Count > 0 Then
+        checkBDS2ParcDuo2 = True
+    End If
+
+    Set toDB    = Nothing
+    Set lstBDS  = Nothing
+    
+	strSQLStatement = ebnullstring
+Exit Function
+Error_Handling:
+   TRUELOG "Erreur n�" & Err.number & ", Ligne="& erl & " Source=" & Err.Source & " Description: " & Err.description
+End Function
+' # 30-05-2017 - KKAN : COR C18284878 - Fin >
+
+'*********************************************************************/
+'Author: Marouane NABIH
+'Description:
+'Input : V�rifier qu'il n'existe pas de lignes en cours de migration
+'Output : Boolean
+'Update:
+'*********************************************************************/
+Function checkMigration(ideds As String) As Boolean
+On  Error GoTo Error_Handling
+    Dim statut          As New List
+    Dim strSqlStatement As string
+    Dim toDB            As New SQLDB
+    Dim br              As New Bulkretrieve
+    Dim lstTmp          As New List
+    Dim strAdgNonCum    As String
+
+    statut.ItemType = "String"
+
+    strSqlStatement = " SELECT x_av_statut_migration" & _
+                      " FROM table_contr_itm" & _
+                      " WHERE x_av_id_eds = '" & ideds & "'" & _
+		      " AND nvl(x_av_flag_transfert,0) <> 1"&_
+                      " AND child2contr_itm is null"& _
+                      " AND x_av_statut_migration is not null"
+
+    toDB.Select strSQLStatement, statut
+
+
+    If statut.Count > 0 Then
+        checkMigration = True
+    Else
+        checkMigration = False
+    End If
+    Exit Function
+Error_Handling:
+   TRUELOG "Erreur n�" & Err.number & ", Ligne="& erl & " Source=" & Err.Source & " Description: " & Err.description
+End Function
+
+'*********************************************************************/
+'Author: Marouane NABIH
+'Description:
+'Input : V�rifier que les lots sources et cibles ne sont pas des lots de lignes secondaires
+'Output : Boolean
+'Update:
+'*********************************************************************/
+Function checkLotsSecondaires(objidLotSource As String, objidLotCible As String) As Boolean
+On  Error GoTo Error_Handling
+    Dim lstTmp          As New List
+    Dim strSqlStatement As string
+    Dim toDB            As New SQLDB
+    Dim br              As New Bulkretrieve
+    Dim lstTmp2         As New List
+    Dim strAdgNonCum    As String
+    Dim strCoffreDefaut As String
+
+
+    br.Clear
+    br.SimpleQuery 0, "x_av_code"
+    br.AppendFilter 0, "x_av_type", Cbequal, "LISTE_ID_COFFRE_DEFAUT"
+    br.RetrieveRecords
+    Set lstTmp2 = br.GetRecordlist (0)
+    strCoffreDefaut = ListCodeToString (lstTmp2, "x_av_code", "'")
+
+    lstTmp.ItemType = "String"
+
+    strSqlStatement = " SELECT ci.objid" & _
+                      " FROM table_contr_itm ci," & _
+                      "      table_mod_level ml," & _
+					  "      table_x_av_code code," & _
+                      "      table_part_num pn" & _
+                      " WHERE ci.contr_itm2mod_level                   = ml.objid" & _
+                      " AND ml.part_info2part_num                      = pn.objid" & _
+                      " AND ci.contr_itm2contr_schedule               IN ( '" & ObjidLotSource & "', '" & ObjidLotCible & "' )" & _
+                      " AND ci.child2contr_itm                        IS NULL" & _
+					  " AND code.x_av_type                        	   ='TYPE_LIGNE_SECONDAIRE' " & _
+                      " AND ci.x_av_type_article                       = code.x_av_num" & _
+                      " AND ci.x_av_ndi                           IS NOT NULL" & _
+                      " AND NVL(ci.x_av_o_scs, 0)                      = 0" & _
+                      " AND LENGTH(TRIM(NVL(pn.x_av_generic_quad,''))) > 0" & _
+                      " AND pn.x_av_part_prov_level                    = 'SI'" & _
+                      " AND pn.x_av_generic_quad                  NOT IN ( " & strCoffreDefaut & " )"
+
+    toDB.Select strSQLStatement, lstTmp
+    If lstTmp.Count > 0 Then
+        checkLotsSecondaires = True
+    Else
+        checkLotsSecondaires = False
+    End If
+
+    Set br                               = Nothing
+    Set lstTmp                           = Nothing
+    Set lstTmp2                          = Nothing
+    Set toDB                             = Nothing
+    strSqlStatement                      = ebnullstring
+
+    Exit Function
+Error_Handling:
+   TRUELOG "Erreur n�" & Err.number & ", Ligne="& erl & " Source=" & Err.Source & " Description: " & Err.description
+End Function
+
+' Debut EEL
+Function InitParamXAvCode() As Boolean
+On Error GoTo Error_Handling
+    'IAD R�cup�ration des cat�gories � partir du param
+    Dim br             As New BulkRetrieve
+    Dim lstTmp         As New list
+    Dim lstTyp         As New List
+    Dim recTmp         As New Record
+    Dim Indx           As Long
+
+    InitParamXAvCode = False
+    lstTyp.ItemType  = "string"
+    lstTyp.AppendItem "CAT_BDS1_PBE", "CAT_BDS1_MOVE"
+
+    br.Clear
+    br.SimpleQuery 0, "x_av_code"
+    br.AppendFilter 0, "x_av_type", CbIn, lstTyp
+    br.RetrieveRecords
+
+    Set lstTmp = br.GetRecordlist(0)
+
+    Indx          = lstTmp.FindFirstIndex("CAT_BDS1_PBE", "x_av_type", "LIGNE_PBE", "x_av_code")
+    If Indx < 0 Then
+        TRUELOG "Param�trage CAT_BDS1_PBE|LIGNE_PBE Manquant."
+        Goto CleanUp
+    End If
+    Set recTmp    = lstTmp.ItemByIndex(Indx)
+    strFixe       = recTmp.GetField("x_av_code_2")
+
+    Indx          = lstTmp.FindFirstIndex("CAT_BDS1_PBE", "x_av_type", "ACCES", "x_av_code")
+    If Indx < 0 Then
+        TRUELOG "Param�trage CAT_BDS1_PBE|ACCES Manquant."
+        Goto CleanUp
+    End If
+    Set recTmp    = lstTmp.ItemByIndex(Indx)
+    strAcces      = recTmp.GetField("x_av_code_2")
+
+    Indx          = lstTmp.FindFirstIndex("CAT_BDS1_MOVE", "x_av_type", "LIGNE_MOBILE", "x_av_code")
+    If Indx < 0 Then
+        TRUELOG "Param�trage CAT_BDS1_MOVE|LIGNE_MOBILE Manquant."
+        Goto CleanUp
+    End If
+    Set recTmp    = lstTmp.ItemByIndex(Indx)
+    strMobile     = recTmp.GetField("x_av_code_2")
+
+    InitParamXAvCode = True
+
+CleanUp:
+    Set br        = Nothing
+    Set lstTmp    = Nothing
+    Set lstTyp    = Nothing
+    Set recTmp    = Nothing
+
+Exit Function
+Error_Handling:
+   TRUELOG "Erreur n�" & Err.number & ", Ligne="& erl & " Source=" & Err.Source & " Description: " & Err.description
+End Function
+' Fin EEL
+
+'*********************************************************************/
+'Author: Sebastien PELEGRY
+'Description:  R�cuperer l'objid de la Ligne 
+'*********************************************************************/
+Function recupeObjiIdLigne(IdLigneSource As String) As String
+On Error GoTo Error_Handling
+
+    Dim lst             As New List
+    Dim toDB            As New SQLDB
+    Dim strSQLStatement As String
+
+    strSqlStatement = " SELECT NVL(child2contr_itm, objid)" & _
+                      " FROM table_contr_itm " & _
+                      " WHERE x_av_ndi = '" & IdLigneSource & "'" & _
+		              " AND x_av_statut_act not in ('R�sili�','RESILIE FACTURE','RESILIE NON FACTURE')" & _
+		              " ORDER BY create_date DESC"
+
+    lst.ItemType = "String"
+    toDB.Select strSqlStatement, lst
+
+    If lst.Count > 0 Then
+		recupeObjiIdLigne = lst.itembyindex(0)
+	Else
+		recupeObjiIdLigne = ""
+        strmessage = "La ligne n'existe pas."
+	End If
+
+    Set lst                              = Nothing
+    Set toDB                             = Nothing
+    strSqlStatement                      = ebnullstring
+
+    Exit Function
+Error_Handling:
+    TRUELOG "Erreur : "  
+End Function
+
+'*********************************************************************/
+'Author: Sebastien PELEGRY
+'Description: V�rifier l'appartenance de la ligne au lot
+'Input :
+'Output : Boolean
+'Update:
+'*********************************************************************/
+Function chkLotLigne(ObjidLot As String, ObjidLigne As String) As Boolean
+On Error GoTo Error_Handling
+  
+	Dim brLigne As new bulkretrieve
+	Dim lstLigne As list
+	
+	brLigne.simplequery 0, "contr_itm"
+	brLigne.appendfilter 0, "objid", cbEqual, ObjidLigne
+	brLigne.TraverseFromParent 1, "contr_itm2contr_schedule", 0
+	brLigne.appendfilter 1, "objid", cbEqual, ObjidLot
+
+	brLigne.retrieverecords
+    set lstLigne = brLigne.getRecordlist(1)
+    chkLotLigne = (lstLigne.count > 0)
+
+   Exit Function
+Error_Handling:
+   TRUELOG "Erreur : "  
+End Function

@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RC One · Transfert administratif</title>
+<style>
+:root{
+  --red:#E2001A; --red-dark:#B30015; --red-soft:#FDECEE;
+  --ink:#1A1A1A; --ink-2:#565656; --ink-3:#8E8E8E;
+  --line:#DCDCDC; --line-2:#EDEDED; --page:#ECECEC;
+  --teal:#5CA69B; --orange:#EFA07C; --purple:#A98FD1; --grey:#8C8C8C;
+  --info-bg:#F4F5FC; --info-line:#E1E4F4; --info-ink:#5B6BC0;
+  --radius:10px; --shadow:0 2px 10px rgba(0,0,0,.07);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:"Segoe UI","Helvetica Neue",Helvetica,Arial,sans-serif;color:var(--ink);
+  background:var(--page);font-size:14px;line-height:1.45}
+button,input,select{font-family:inherit}
+:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+
+/* barre de navigation de la maquette, hors charte */
+.proto{background:#262626;color:#fff;padding:7px 16px;display:flex;gap:12px;align-items:center;
+  flex-wrap:wrap;position:sticky;top:0;z-index:60;font-size:12px}
+.proto b{letter-spacing:.08em;color:#9A9A9A;font-weight:700}
+.proto button{background:transparent;border:1px solid #3F3F3F;color:#D2D2D2;padding:4px 10px;
+  border-radius:20px;font-size:12px;cursor:pointer}
+.proto button[aria-current="true"]{background:var(--red);border-color:var(--red);color:#fff;font-weight:700}
+
+/* en-tête applicatif */
+.appbar{background:#fff;display:flex;align-items:center;gap:13px;padding:13px 26px}
+.logo{background:var(--red);color:#fff;font-weight:800;font-size:15px;padding:7px 9px;border-radius:3px;line-height:1}
+.brand{font-weight:800;font-size:20px;letter-spacing:-.01em}
+.brand span{color:#9B9B9B;font-weight:600;font-size:17px}
+.appbar .sp{flex:1}
+.icn{width:26px;height:26px;color:#1B1B1B}
+
+.apptitle{background:#fff;text-align:center;margin:0;padding:6px 22px 18px;font-size:21px;
+  font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.apptabs{background:#fff;display:flex;border-bottom:1px solid var(--line)}
+.apptabs button{flex:1;background:transparent;border:0;border-bottom:3px solid transparent;
+  padding:12px 10px 10px;font-size:15px;font-weight:600;color:var(--ink-2);cursor:pointer}
+.apptabs button[aria-current="true"]{color:var(--ink);font-weight:800;border-bottom-color:var(--red)}
+
+.main{max-width:1760px;margin:0 auto;padding:22px 30px 70px}
+
+/* fil des étapes */
+.stepper{display:flex;align-items:flex-start;margin:4px 0 20px}
+.step{flex:1;text-align:center;position:relative;min-width:0}
+.step .n{width:22px;height:22px;border-radius:50%;margin:0 auto 6px;display:grid;place-items:center;
+  font-size:11px;font-weight:700;background:#CFCFCF;color:#fff;position:relative;z-index:2}
+.step .t{font-size:12px;color:#9B9B9B}
+.step.done .n{background:var(--teal)}
+.step.done .t{color:var(--ink-2)}
+.step.on .n{background:var(--red)}
+.step.on .t{color:var(--ink);font-weight:700}
+.step:not(:first-child)::before{content:"";position:absolute;left:-50%;top:11px;width:100%;height:1px;
+  background:#CFCFCF;z-index:1}
+
+/* bandeau d'information */
+.info{position:relative;background:var(--info-bg);border:1px solid var(--info-line);border-radius:8px;
+  padding:12px 18px 12px 44px;color:var(--ink-2);font-size:13px;margin:0 0 22px}
+.info::before{content:"i";position:absolute;left:17px;top:12px;width:16px;height:16px;border-radius:50%;
+  border:1.5px solid var(--info-ink);color:var(--info-ink);font-size:11px;font-weight:700;font-style:italic;
+  display:grid;place-items:center;line-height:1}
+
+h2.sec{font-size:15px;font-weight:800;margin:0 0 10px}
+.card{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:22px 26px;margin-bottom:20px}
+.card.flat{padding:0;overflow:hidden}
+
+label.f{display:block;font-size:13px;font-weight:800;margin:0 0 3px}
+label.f i{color:var(--red);font-style:normal}
+.help{font-size:11.5px;color:var(--ink-3);margin:0 0 7px}
+.fld{margin-bottom:18px}
+.fld:last-child{margin-bottom:0}
+select,input.txt{width:100%;max-width:780px;padding:11px 13px;border:1px solid var(--line);
+  border-radius:7px;background:#fff;font-size:13.5px;color:var(--ink)}
+select:focus,input.txt:focus{border-color:var(--red);outline:none}
+input[type=checkbox],input[type=radio]{accent-color:var(--red);width:15px;height:15px;vertical-align:-2px}
+
+/* listes à choix multiple et sélecteur d'organisation */
+.ms{position:relative;max-width:780px}
+.ms .champ{width:100%;text-align:left;padding:11px 34px 11px 13px;border:1px solid var(--line);
+  border-radius:7px;background:#fff;font-size:13.5px;color:var(--ink);cursor:pointer;position:relative}
+.ms .champ::after{content:"⌄";position:absolute;right:14px;top:6px;font-size:15px;color:var(--ink-2)}
+.ms .champ.ouvert{border-color:var(--red)}
+.ms .pan{position:absolute;z-index:40;left:0;right:0;top:calc(100% + 4px);background:#fff;
+  border:1px solid var(--line);border-radius:7px;box-shadow:0 8px 24px rgba(0,0,0,.15);
+  max-height:290px;overflow:auto;padding:6px}
+.ms .tools{display:flex;gap:14px;padding:4px 9px 8px;border-bottom:1px solid var(--line-2);margin-bottom:4px}
+.ms .tools button{background:none;border:0;color:var(--red);font-weight:700;font-size:12px;cursor:pointer;padding:0}
+.ms .pan input.q{width:100%;margin:0 0 6px;padding:8px 10px;border:1px solid var(--line);
+  border-radius:5px;font-size:12.5px}
+.ms .pan label{display:flex;gap:9px;align-items:center;padding:7px 9px;border-radius:5px;
+  font-size:13px;cursor:pointer;color:var(--ink-2)}
+.ms .pan label:hover{background:#F6F6F6}
+.ms .vide{padding:12px 9px;font-size:12.5px;color:var(--ink-3)}
+
+/* bloc organisation sélectionnée */
+.orgbox{border:1px solid var(--line);border-radius:7px;padding:10px 14px;display:flex;align-items:center;
+  gap:12px;background:#fff;max-width:520px}
+.orgbox .nm{font-size:13.5px;font-weight:600}
+.orgbox .sr{font-size:12px;color:var(--ink-3)}
+.orgbox .x{margin-left:auto;background:none;border:0;font-size:17px;color:var(--ink-2);cursor:pointer}
+
+/* groupes de choix de la destination */
+.srclbl{color:var(--red);font-size:12px;font-weight:800;margin:0 0 9px}
+.radios{display:flex;gap:26px;flex-wrap:wrap}
+.radios label{font-size:13px;color:var(--ink-2);cursor:pointer;display:flex;align-items:center;gap:7px}
+.maprow{display:grid;grid-template-columns:1fr 28px 1fr;align-items:center;gap:10px;margin-bottom:10px}
+.maprow .src{border:1px solid var(--line);border-radius:7px;padding:10px 13px;font-size:13px;color:var(--ink-2);
+  background:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.maprow .ar{text-align:center;color:var(--ink-2);font-size:15px}
+
+/* tableaux */
+.tblwrap{overflow-x:auto}
+table.t{width:100%;border-collapse:collapse;font-size:12.5px}
+table.t thead th{padding:13px 14px;font-size:11.5px;font-weight:800;color:var(--ink);text-align:left;
+  white-space:nowrap;border-bottom:1px solid var(--line)}
+table.t thead th.s::after{content:" ⇅";color:#C6C6C6;font-size:9px;font-weight:400}
+table.t tbody td{padding:11px 14px;border-bottom:1px solid var(--line-2);color:var(--ink-2);
+  vertical-align:middle;white-space:nowrap}
+table.t tbody tr:hover td{background:#FAFAFA}
+.lnk{color:var(--red);text-decoration:underline;cursor:pointer;font-weight:600}
+
+/* actions de ligne : l'icone inactive reste visible mais eteinte */
+.act{background:none;border:0;cursor:pointer;font-size:15px;line-height:1;padding:2px 4px;color:var(--red)}
+.act[disabled]{color:#CFCFCF;cursor:not-allowed}
+
+/* pastilles */
+.tag{display:inline-block;padding:4px 13px;border-radius:14px;font-size:11px;font-weight:700;color:#fff;white-space:nowrap}
+.tag.ok{background:var(--teal)} .tag.warn{background:var(--orange)}
+.tag.ko{background:var(--red)}  .tag.idle{background:var(--grey)} .tag.run{background:var(--purple)}
+
+/* barres d'avancement */
+.bar{height:9px;border-radius:5px;background:#E3E3E3;overflow:hidden;display:flex;min-width:110px}
+.bar i{display:block;height:100%}
+.b-ok{background:var(--teal)} .b-run{background:var(--purple)}
+.b-ko{background:var(--red)}  .b-warn{background:var(--orange)}
+
+/* pagination */
+.pg{display:flex;justify-content:center;align-items:center;gap:14px;padding:16px 0 4px;font-size:13px}
+.pg button{background:none;border:0;cursor:pointer;color:var(--ink-2);font-size:13px}
+.pg button[aria-current="true"]{color:var(--red);font-weight:800}
+.pg .ch{color:var(--ink-3)}
+
+/* actions */
+.actions{display:flex;justify-content:center;gap:16px;margin:30px 0 8px}
+.btn{border-radius:24px;padding:11px 26px;font-size:14px;font-weight:700;cursor:pointer;border:2px solid transparent}
+.btn.primary{background:var(--red);border-color:var(--red);color:#fff}
+.btn.primary:hover{background:var(--red-dark);border-color:var(--red-dark)}
+.btn.ghost{background:#fff;border-color:var(--red);color:var(--red)}
+.btn.ghost:hover{background:var(--red-soft)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.abandon{display:block;margin:0 auto;background:none;border:0;cursor:pointer;color:var(--ink-2);
+  font-size:13px;font-weight:600}
+.abandon::after{content:" ✕";color:var(--red)}
+.abandon:hover{color:var(--red)}
+
+/* panier */
+.cart{display:flex;flex-direction:column;align-items:center;gap:0}
+.cart .badge{background:var(--red);color:#fff;font-size:11px;font-weight:700;border-radius:5px;
+  padding:6px 13px;text-align:center;line-height:1.25;position:relative;z-index:2;
+  box-shadow:0 2px 6px rgba(226,0,26,.25);min-width:104px}
+.cart .badge b{display:block;font-size:17px;line-height:1.15}
+.cart .box{width:60px;height:54px;border-radius:10px;background:#CFE0DC;display:grid;place-items:center;
+  box-shadow:var(--shadow);margin-top:-4px}
+.cart .box svg{width:26px;height:26px;color:#2F6F64}
+
+/* en-têtes de liste */
+.listhead{display:flex;align-items:flex-end;gap:14px;margin:26px 0 10px;position:relative}
+.listhead h2{margin:0}
+.listhead .sp{flex:1}
+.xls{color:var(--red);font-weight:700;font-size:13px;cursor:pointer;background:none;border:0}
+.xls::after{content:" ❯"}
+.relance{color:var(--red);font-weight:700;font-size:13px;cursor:pointer;background:none;border:0}
+.relance::after{content:" ↻"}
+
+/* filtres du suivi */
+.filters{display:grid;grid-template-columns:repeat(5,1fr) 54px;gap:14px;align-items:end;margin-bottom:26px}
+/* le suivi porte onze colonnes : on y resserre un peu la typographie pour tout faire tenir */
+.screen[data-s="5"] table.t{font-size:12px}
+.screen[data-s="5"] table.t thead th{padding:12px 11px}
+.screen[data-s="5"] table.t tbody td{padding:10px 11px}
+.filters label{display:block;font-size:12.5px;font-weight:700;margin-bottom:5px}
+.search{height:42px;border:0;border-radius:7px;background:var(--red);color:#fff;cursor:pointer;
+  display:grid;place-items:center}
+.search svg{width:18px;height:18px}
+
+/* écran de détail */
+.back{color:var(--red);font-weight:700;font-size:13px;cursor:pointer;background:none;border:0;padding:0}
+.back::before{content:"❮ "}
+.dethead{background:#fff;text-align:center;padding:6px 22px 22px;position:relative}
+.dethead .ref{font-size:21px;font-weight:800;letter-spacing:.06em;margin:0 0 6px}
+.dethead .sub{font-size:14px;color:var(--ink);margin:0 0 4px}
+.dethead .mini{font-size:12px;color:var(--ink-3);margin:0}
+.dethead .back{position:absolute;left:26px;top:8px}
+.kpis{display:flex;gap:46px;flex-wrap:wrap;margin-top:18px;justify-content:center}
+.kpi{text-align:center}
+.kpi b{display:block;font-size:18px;font-weight:800;margin-bottom:7px}
+.globalbar{height:12px;border-radius:6px;overflow:hidden;display:flex;background:#CFCFCF}
+
+.hidden{display:none}
+.screen{display:none}
+.screen.on{display:block}
+</style>
+</head>
+<body>
+
+<div class="proto">
+  <b>MAQUETTE</b>
+  <button onclick="go(1)" data-t="1">1 · Source</button>
+  <button onclick="go(2)" data-t="2">2 · Destination</button>
+  <button onclick="go(3)" data-t="3">3 · Contrôles</button>
+  <button onclick="go(4)" data-t="4">4 · Validation</button>
+  <button onclick="go(5)" data-t="5">Suivi</button>
+  <button onclick="go(6)" data-t="6">Détail</button>
+  <button onclick="reset();go(1)">↺ Réinitialiser</button>
+</div>
+
+<div class="appbar">
+  <div class="logo">SFR</div>
+  <div class="brand">RC One <span>| RC 360</span></div>
+  <div class="sp"></div>
+  <svg class="icn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="10" r="3.3"/><path d="M5.6 19a7.2 7.2 0 0 1 12.8 0"/></svg>
+  <svg class="icn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+</div>
+
+<div id="chrome">
+  <h1 class="apptitle">TRANSFERT ADMINISTRATIF</h1>
+  <div class="apptabs">
+    <button id="tabNouveau" onclick="go(1)">Nouveau transfert</button>
+    <button id="tabSuivi" onclick="go(5)">Suivi</button>
+  </div>
+</div>
+
+<div class="main">
+
+<!-- ======================= 1. SOURCE ======================= -->
+<section class="screen" data-s="1">
+  <div class="stepper" id="st1"></div>
+  <div class="info">Délimitez le parc concerné. Vous ne descendrez à la ligne que si nécessaire.</div>
+
+  <h2 class="sec">Périmètre source</h2>
+
+  <div class="fld" style="margin-bottom:20px">
+    <label class="f">Organisation<i>*</i></label>
+    <div id="orgBox"></div>
+  </div>
+
+  <div class="card">
+    <div class="fld">
+      <label class="f">Contrat<i>*</i></label>
+      <p class="help">Indispensable pour transférer le contrat entier. Laissez « Tous » pour un périmètre défini uniquement par les sites.</p>
+      <div id="fContrat"></div>
+    </div>
+    <div class="fld">
+      <label class="f">Tous les sites d'installation<i>*</i></label>
+      <p class="help">Axe indépendant du contrat. Entrée naturelle pour reprendre tout le parc d'un site.</p>
+      <div id="fCu"></div>
+    </div>
+    <div class="fld">
+      <label class="f">Tous les comptes de facturation<i>*</i></label>
+      <p class="help">Axe indépendant du contrat. Entrée naturelle d'une centralisation ou d'un regroupement de facture.</p>
+      <div id="fCf"></div>
+    </div>
+  </div>
+
+  <div class="listhead" style="align-items:flex-end">
+    <h2 class="sec" id="srcTitre" style="margin-bottom:4px"></h2>
+    <div class="sp"></div>
+    <div class="cart">
+      <span class="badge" id="cartBadge"></span>
+      <span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+        <path d="M3 4h2l2.2 10.2a2 2 0 0 0 2 1.6h7.1a2 2 0 0 0 2-1.5L20 7H6"/>
+        <circle cx="10" cy="20" r="1.3"/><circle cx="17" cy="20" r="1.3"/></svg></span>
+    </div>
+  </div>
+
+  <div class="card flat">
+    <div class="tblwrap"><table class="t">
+      <thead><tr>
+        <th style="width:34px"><input type="checkbox" id="srcAll" onclick="toutCocher(this.checked)"></th>
+        <th class="s">IDS</th><th class="s">MID</th><th class="s">Offre</th><th class="s">Contrat</th>
+        <th class="s">Lot</th><th class="s">Site d'installation</th><th class="s">comptes de facturation</th>
+        <th class="s">Statut</th>
+      </tr></thead>
+      <tbody id="srcBody"></tbody>
+    </table></div>
+    <div class="pg" id="srcPg"></div>
+  </div>
+
+  <div class="actions">
+    <button class="btn ghost" onclick="reset();go(1)">Annuler</button>
+    <button class="btn primary" id="btnDest" onclick="go(2)">Définir la destination</button>
+  </div>
+</section>
+
+<!-- ======================= 2. DESTINATION ======================= -->
+<section class="screen" data-s="2">
+  <div class="stepper" id="st2"></div>
+  <div class="info">Pour chaque axe, conserver la structure source, regroupez-la ou reproduisez-la.</div>
+
+  <h2 class="sec">Organisation</h2>
+  <div class="card" id="dOrg"></div>
+
+  <h2 class="sec">Contrats</h2>
+  <div class="card" id="dContrat"></div>
+
+  <h2 class="sec">Sites d'installation</h2>
+  <div class="card" id="dCu"></div>
+
+  <h2 class="sec">Comptes de facturation</h2>
+  <div class="card" id="dCf"></div>
+
+  <div class="fld" style="margin-top:22px">
+    <label class="f">Date de traitement souhaitée<i>*</i></label>
+    <div class="card" style="padding:14px 18px">
+      <input class="txt" type="date" id="dDate" style="max-width:190px" onchange="S.date=this.value">
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn ghost" onclick="go(1)">Annuler</button>
+    <button class="btn primary" onclick="go(3)">Lancer les contrôles</button>
+  </div>
+  <button class="abandon" onclick="reset();go(1)">Abandonner</button>
+</section>
+
+<!-- ======================= 3. CONTRÔLES ======================= -->
+<section class="screen" data-s="3">
+  <div class="stepper" id="st3"></div>
+  <div class="info">Tous les contrôles sont joués en une passe. Rien n'est enregistré tant que vous n'avez pas validé.</div>
+
+  <h2 class="sec" id="ctrTitre"></h2>
+  <div class="card">
+    <div style="display:flex;gap:70px">
+      <div><b style="font-size:17px;display:block;margin-bottom:8px" id="ctrOk"></b><span class="tag ok">Transférables</span></div>
+      <div><b style="font-size:17px;display:block;margin-bottom:8px" id="ctrKo"></b><span class="tag ko">Bloquées</span></div>
+    </div>
+  </div>
+
+  <h2 class="sec" id="ctrKoTitre"></h2>
+  <div class="card flat">
+    <div class="tblwrap"><table class="t">
+      <thead><tr><th class="s">IDS</th><th class="s">Ligne</th><th class="s">Statut</th>
+        <th class="s">Motif</th><th class="s">Ce qu'il faut faire</th></tr></thead>
+      <tbody id="ctrBody"></tbody>
+    </table></div>
+    <div class="pg" id="ctrPg"></div>
+  </div>
+
+  <div class="actions">
+    <button class="btn ghost" onclick="go(2)">Corriger la destination</button>
+    <button class="btn primary" id="btnSuite" onclick="go(4)">Continuer avec les lignes transférables</button>
+  </div>
+  <button class="abandon" onclick="reset();go(1)">Abandonner</button>
+</section>
+
+<!-- ======================= 4. VALIDATION ======================= -->
+<section class="screen" data-s="4">
+  <div class="stepper" id="st4"></div>
+  <div class="info">Vérifiez le récapitulatif. La demande sera créée puis exécutée à la date d'effet.</div>
+
+  <div style="display:grid;grid-template-columns:150px 1fr 150px;gap:26px;align-items:center">
+    <div style="text-align:center">
+      <div style="font-size:12.5px;font-weight:800;margin-bottom:10px">MID à transférer</div>
+      <div class="cart">
+        <span class="badge" id="valBadge"></span>
+        <span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+          <path d="M3 4h2l2.2 10.2a2 2 0 0 0 2 1.6h7.1a2 2 0 0 0 2-1.5L20 7H6"/>
+          <circle cx="10" cy="20" r="1.3"/><circle cx="17" cy="20" r="1.3"/></svg></span>
+      </div>
+    </div>
+
+    <div class="card" style="margin:0">
+      <table class="t" style="font-size:13px">
+        <thead><tr><th style="width:50%">Source</th><th>Cible</th></tr></thead>
+        <tbody id="valBody"></tbody>
+      </table>
+    </div>
+
+    <div style="text-align:center">
+      <div style="font-size:12.5px;font-weight:800;margin-bottom:8px">Date d'effet</div>
+      <div style="font-size:13.5px" id="valDate"></div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn ghost" onclick="go(3)">Revenir aux contrôles</button>
+    <button class="btn primary" onclick="creerDemande()">Créer la demande</button>
+  </div>
+  <button class="abandon" onclick="reset();go(1)">Abandonner</button>
+</section>
+
+<!-- ======================= 5. SUIVI ======================= -->
+<section class="screen" data-s="5">
+  <div class="filters">
+    <div><label>Référence</label><input class="txt" type="text" placeholder="TR - 2026 - 000000"></div>
+    <div><label>Type de transfert</label><select><option>Toutes</option></select></div>
+    <div><label>Organisation</label><select><option>Nom de l'organisation</option></select></div>
+    <div><label>N° Contrat source</label><select id="fSuiviCtr"></select></div>
+    <div><label>Statuts</label><select id="fSuiviStatut" onchange="FS.statut=this.value;renderSuivi()"></select></div>
+    <button class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4.2-4.2"/></svg></button>
+  </div>
+
+  <div class="listhead" style="margin-top:0">
+    <h2 class="sec" id="suiviTitre"></h2>
+  </div>
+  <button class="xls" style="margin-bottom:12px">Exporter (xls)</button>
+
+  <div class="card flat">
+    <div class="tblwrap"><table class="t">
+      <thead><tr>
+        <th class="s">Référence</th><th class="s">Type de transfert</th><th class="s">Organisation</th>
+        <th class="s">N° Contrat source</th><th class="s">N° Contrat cible</th><th class="s">Créé le</th>
+        <th class="s">Date d'effet</th><th class="s">Avancement</th><th class="s">Nb de lignes</th>
+        <th class="s">Statut</th><th style="width:44px"></th>
+      </tr></thead>
+      <tbody id="suiviBody"></tbody>
+    </table></div>
+    <div class="pg" id="suiviPg"></div>
+  </div>
+</section>
+
+<!-- ======================= 6. DÉTAIL ======================= -->
+<section class="screen" data-s="6">
+  <div id="detCheck"></div>
+
+  <h2 class="sec">Avancement global</h2>
+  <div class="card">
+    <div class="globalbar" id="detBar"></div>
+    <div class="kpis" id="detKpis"></div>
+  </div>
+
+  <div class="listhead">
+    <h2 class="sec" id="detTitre"></h2>
+  </div>
+  <div style="display:flex;align-items:center;margin-bottom:12px">
+    <button class="xls">Exporter (xls)</button>
+    <div style="flex:1"></div>
+    <button class="relance" onclick="relancer()">Relancer les lignes en erreur</button>
+  </div>
+
+  <div class="card flat">
+    <div class="tblwrap"><table class="t">
+      <thead><tr><th class="s">IDS</th><th class="s">Ligne</th><th class="s">Offre</th>
+        <th class="s">Étape en cours</th><th class="s">Date de la dernière MAJ</th>
+        <th class="s">Statut</th><th class="s">Motif</th></tr></thead>
+      <tbody id="detBody"></tbody>
+    </table></div>
+    <div class="pg" id="detPg"></div>
+  </div>
+</section>
+
+</div>
+<script>
+/* ===================== RÉFÉRENTIEL ===================== */
+const ORGS={
+ O1:{num:"0018202249",nom:"MERIDIA EXPLOITATION SAS",siren:"812 447 301",ville:"PARIS 18"},
+ O2:{num:"0018202257",nom:"MERIDIA LOGISTIQUE SNC",siren:"904 118 662",ville:"SAINT-DENIS"},
+ O3:{num:"0018204410",nom:"MERIDIA SERVICES SUD SAS",siren:"887 220 145",ville:"MARSEILLE 02"},
+ O4:{num:"0021447038",nom:"GROUPE VALORIS DISTRIBUTION SA",siren:"402 118 773",ville:"RUNGIS"},
+ O5:{num:"0021447112",nom:"VALORIS IMMOBILIER SCI",siren:"511 903 226",ville:"LEVALLOIS-PERRET"},
+ O6:{num:"0019338204",nom:"ATLANTIQUE MAREE SARL",siren:"349 772 018",ville:"LORIENT"},
+ O7:{num:"0024110996",nom:"CLINIQUE DU PARC DES CEDRES",siren:"780 114 559",ville:"CORNEBARRIEU"},
+ O8:{num:"0022805531",nom:"TRANSPORTS BERTRAND ET FILS SAS",siren:"328 660 471",ville:"CORBAS"},
+ O9:{num:"0026710448",nom:"NOVAPHARM LABORATOIRES SA",siren:"552 100 884",ville:"VAL-DE-REUIL"},
+ O10:{num:"0017044065",nom:"COMMUNE DE SAINT-MARTIN-DE-RE",siren:"211 704 065",ville:"SAINT-MARTIN-DE-RE"},
+ O11:{num:"0023409117",nom:"ELECTRO CHANTIER GRAND EST SARL",siren:"434 902 117",ville:"STRASBOURG"}
+};
+const CONTRATS={
+ C1:{num:"831885",nom:"Services fixes et mobiles",org:"O1",ac:"GGD-2021-RETAIL v4",rcs:"SFR"},
+ C2:{num:"793712",nom:"Réseau et sécurité",org:"O1",ac:"GGD-2019-NET v2",rcs:"SFR"},
+ C3:{num:"907114",nom:"Services logistique",org:"O2",ac:"GGD-2024-RETAIL v7",rcs:"SFR"},
+ C4:{num:"907220",nom:"Mobilité logistique",org:"O2",ac:"GGD-2024-MOB v3",rcs:"COMPLETEL"},
+ C5:{num:"744102",nom:"Services Sud",org:"O3",ac:"GGD-2022-RETAIL v5",rcs:"SFR"},
+ C6:{num:"612004",nom:"Télécom multisites",org:"O4",ac:"GGD-2020-RETAIL v6",rcs:"SFR"},
+ C7:{num:"612118",nom:"Mobilité terrain",org:"O4",ac:"GGD-2023-MOB v2",rcs:"SFR"},
+ C8:{num:"612330",nom:"Services immobiliers",org:"O5",ac:"GGD-2020-RETAIL v6",rcs:"SFR"},
+ C9:{num:"588210",nom:"Fixe et mobile",org:"O6",ac:"GGD-2018-RETAIL v3",rcs:"COMPLETEL"},
+ C10:{num:"655902",nom:"Réseau hospitalier",org:"O7",ac:"GGD-2021-SANTE v2",rcs:"SFR"},
+ C11:{num:"701445",nom:"Flotte mobile",org:"O8",ac:"GGD-2022-MOB v4",rcs:"SFR"},
+ C12:{num:"733018",nom:"Sites industriels",org:"O9",ac:"GGD-2023-INDUS v1",rcs:"SFR"},
+ C13:{num:"689221",nom:"Services publics",org:"O10",ac:"GGD-2019-COLLECT v7",rcs:"SFR"},
+ C14:{num:"758440",nom:"Chantiers mobiles",org:"O11",ac:"GGD-2022-MOB v4",rcs:"SFR"}
+};
+const SITES={
+ U1:{num:"1112901H1Z",nom:"SI PARIS LA CHAPELLE",org:"O1",cu:1,cf:0,rcs:"SFR",dest:1},
+ U2:{num:"1112901H3K",nom:"SI SAINT-OUEN DEPOT",org:"O1",cu:1,cf:0,rcs:"SFR",dest:1},
+ U3:{num:"2264107D2M",nom:"SI LYON GERLAND",org:"O1",cu:1,cf:0,rcs:"SFR",dest:1},
+ F1:{num:"1112901H07",nom:"CF PARIS NORD",org:"O1",cu:0,cf:1,rcs:"SFR",dest:1},
+ F2:{num:"2264107D01",nom:"CF LYON SUD",org:"O1",cu:0,cf:1,rcs:"SFR",dest:0},
+ U4:{num:"3318220K1A",nom:"SI SAINT-DENIS PLATEFORME",org:"O2",cu:1,cf:0,rcs:"SFR",dest:1},
+ F3:{num:"3318220K07",nom:"CF LOGISTIQUE SAINT-DENIS",org:"O2",cu:0,cf:1,rcs:"SFR",dest:1},
+ F4:{num:"3318220K09",nom:"CF LOGISTIQUE LYON",org:"O2",cu:0,cf:1,rcs:"COMPLETEL",dest:1},
+ U5:{num:"4471003M1B",nom:"SI MARSEILLE ARENC",org:"O3",cu:1,cf:0,rcs:"SFR",dest:1},
+ F5:{num:"4471003M01",nom:"CF MARSEILLE ARENC",org:"O3",cu:0,cf:1,rcs:"SFR",dest:1},
+ U7:{num:"5511003W1D",nom:"SI VALORIS LEVALLOIS",org:"O5",cu:1,cf:0,rcs:"SFR",dest:1},
+ F7:{num:"5511003W01",nom:"CF VALORIS LEVALLOIS",org:"O5",cu:0,cf:1,rcs:"SFR",dest:1},
+ U8:{num:"6620118L1E",nom:"SI LORIENT KERGROISE",org:"O6",cu:1,cf:0,rcs:"COMPLETEL",dest:1},
+ F8:{num:"6620118L01",nom:"CF LORIENT KERGROISE",org:"O6",cu:0,cf:1,rcs:"COMPLETEL",dest:1},
+ U9:{num:"7714200C1F",nom:"SI CEDRES BLOC A",org:"O7",cu:1,cf:0,rcs:"SFR",dest:1},
+ F9:{num:"7714200C01",nom:"CF CEDRES ADMINISTRATION",org:"O7",cu:0,cf:1,rcs:"SFR",dest:1},
+ U10:{num:"8830117B1G",nom:"SI BERTRAND CORBAS",org:"O8",cu:1,cf:0,rcs:"SFR",dest:1},
+ F10:{num:"8830117B01",nom:"CF BERTRAND CORBAS",org:"O8",cu:0,cf:1,rcs:"SFR",dest:1},
+ U12:{num:"1170406S1J",nom:"SI MAIRIE SAINT-MARTIN",org:"O10",cu:1,cf:0,rcs:"SFR",dest:1},
+ F12:{num:"1170406S01",nom:"CF MAIRIE SAINT-MARTIN",org:"O10",cu:0,cf:1,rcs:"SFR",dest:1},
+ U13:{num:"2240911E1K",nom:"SI ELECTRO STRASBOURG",org:"O11",cu:1,cf:0,rcs:"SFR",dest:1},
+ F13:{num:"2240911E01",nom:"CF ELECTRO STRASBOURG",org:"O11",cu:0,cf:1,rcs:"SFR",dest:1}
+};
+const LOTS={
+ L1:{nom:"LOT PARIS NORD 1",contrat:"C1",cu:"U1",cf:"F1"},
+ L2:{nom:"LOT MOBILE IDF",contrat:"C1",cu:"U1",cf:"F1"},
+ L3:{nom:"LOT SAINT-OUEN 1",contrat:"C1",cu:"U2",cf:"F1"},
+ L4:{nom:"LOT LYON 1",contrat:"C1",cu:"U3",cf:"F2"},
+ L5:{nom:"LOT RESEAU IDF",contrat:"C2",cu:"U1",cf:"F1"},
+ L6:{nom:"LOT RESEAU LYON",contrat:"C2",cu:"U3",cf:"F2"},
+ L7:{nom:"LOT LOGISTIQUE IDF",contrat:"C3",cu:"U4",cf:"F3"},
+ L8:{nom:"LOT LOGISTIQUE ENTREPOTS",contrat:"C3",cu:"U4",cf:"F3"},
+ L9:{nom:"LOT MOBILE LOGISTIQUE",contrat:"C4",cu:"U4",cf:"F3"},
+ L10:{nom:"LOT SUD 1",contrat:"C5",cu:"U5",cf:"F5"},
+ L14:{nom:"LOT LEVALLOIS 1",contrat:"C8",cu:"U7",cf:"F7"},
+ L15:{nom:"LOT KERGROISE 1",contrat:"C9",cu:"U8",cf:"F8"},
+ L16:{nom:"LOT CEDRES BLOC A",contrat:"C10",cu:"U9",cf:"F9"},
+ L17:{nom:"LOT BERTRAND FLOTTE",contrat:"C11",cu:"U10",cf:"F10"},
+ L19:{nom:"LOT MAIRIE 1",contrat:"C13",cu:"U12",cf:"F12"},
+ L20:{nom:"LOT ELECTRO CHANTIERS",contrat:"C14",cu:"U13",cf:"F13"}
+};
+const LIGNES=[
+ ["IDS-4471902","0155447120","Trunk SIP 30 canaux","L1","Active",[]],
+ ["IDS-4471903","0155447121","Trunk SIP 30 canaux","L1","Active",[]],
+ ["IDS-4471904","0155447122","Trunk SIP 10 canaux","L1","Active",[]],
+ ["IDS-4471905","0155447123","Trunk SIP 10 canaux","L1","Active",[],null,"F2"],
+ ["IDS-4472301","—","Accès fibre 1 Gb/s","L1","Suspendue",[]],
+ ["IDS-4472588","0155447190","Trunk SIP 10 canaux","L1","Active",["acte_en_cours"]],
+ ["IDS-4472712","0155447233","Accès fibre 1 Gb/s","L1","A résilier",[]],
+ ["IDS-4472713","0155447234","Accès fibre 1 Gb/s","L1","Active",[]],
+ ["IDS-4472145","0620113847","Forfait Business 5G","L2","Active",[]],
+ ["IDS-4472146","0620113848","Forfait Business 5G","L2","Active",[]],
+ ["IDS-4472147","0620113849","Forfait Business 5G","L2","Active",[]],
+ ["IDS-4472148","0620113850","Forfait Business 5G","L2","Active",["parc_duo"]],
+ ["IDS-4472149","0620113851","Forfait Data M2M","L2","Active",[]],
+ ["IDS-4472150","0620113852","Forfait Data M2M","L2","Active",[],"U2"],
+ ["IDS-4472151","0620113853","Forfait Business 5G","L2","En cours de migration",[]],
+ ["IDS-4473010","0155448001","Trunk SIP 10 canaux","L3","Active",[]],
+ ["IDS-4473011","0155448002","Accès fibre 1 Gb/s","L3","Active",[]],
+ ["IDS-4473012","0620114001","Forfait Business 5G","L3","Active",["acte_en_cours"]],
+ ["IDS-4473013","0620114002","Forfait Business 5G","L3","Active",[]],
+ ["IDS-4473014","—","Accès fibre 1 Gb/s","L3","Active",["non_provisionne"]],
+ ["IDS-4474100","0472110001","Trunk SIP 30 canaux","L4","Active",[]],
+ ["IDS-4474101","0472110002","Trunk SIP 30 canaux","L4","Active",[]],
+ ["IDS-4474102","0620115001","Forfait Business 5G","L4","Active",[]],
+ ["IDS-4474103","0620115002","Forfait Data M2M","L4","Suspendue",[]],
+ ["IDS-4475200","—","Lien VPN MPLS","L5","Active",[]],
+ ["IDS-4475201","—","Lien VPN MPLS","L5","Active",[]],
+ ["IDS-4475202","—","Firewall managé","L5","Active",[]],
+ ["IDS-4475203","—","Firewall managé","L5","Active",["parc_duo"]],
+ ["IDS-4475300","—","Lien VPN MPLS","L6","Active",[]],
+ ["IDS-4475301","—","Firewall managé","L6","Active",[]],
+ ["IDS-4475302","—","Lien VPN MPLS","L6","A résilier",[]],
+ ["IDS-4476400","0491220001","Trunk SIP 10 canaux","L10","Active",[]],
+ ["IDS-4476401","0491220002","Accès fibre 1 Gb/s","L10","Active",[]],
+ ["IDS-4476402","0620116001","Forfait Business 5G","L10","Active",[]],
+ ["IDS-4476403","0620116002","Forfait Data M2M","L10","Active",[]],
+ ["IDS-4476404","—","Firewall managé","L10","Suspendue",[]],
+ ["IDS-4477500","0148330001","Trunk SIP 30 canaux","L7","Active",[]],
+ ["IDS-4477501","0148330002","Accès fibre 1 Gb/s","L7","Active",[]],
+ ["IDS-4477502","0620117001","Forfait Business 5G","L9","Active",[]],
+ ["IDS-4477503","0620117002","Forfait Business 5G","L9","Active",[]],
+ ["IDS-4478600","0153440001","Trunk SIP 10 canaux","L14","Active",[]],
+ ["IDS-4478601","0620118001","Forfait Business 5G","L14","Active",[]],
+ ["IDS-4478700","0297330001","Accès fibre 1 Gb/s","L15","Active",[]],
+ ["IDS-4478701","0620119001","Forfait Business 5G","L15","Active",[]],
+ ["IDS-4478800","0561220001","Lien VPN MPLS","L16","Active",[]],
+ ["IDS-4478801","0561220002","Firewall managé","L16","Active",[]],
+ ["IDS-4478900","0620120001","Forfait Business 5G","L17","Active",[]],
+ ["IDS-4478901","0620120002","Forfait Data M2M","L17","Active",[]],
+ ["IDS-4479000","0546090001","Trunk SIP 10 canaux","L19","Active",[]],
+ ["IDS-4479100","0620121001","Forfait Business 5G","L20","Active",[]]
+];
+
+/* --- génération déterministe du parc multi-sites --- */
+const VILLES=["RUNGIS","ORLY","WISSOUS","CHILLY-MAZARIN","MASSY","ANTONY","FRESNES","THIAIS","VITRY","IVRY",
+ "CRETEIL","BONNEUIL","SUCY","VILLEJUIF","ARCUEIL","MONTROUGE","MALAKOFF","VANVES","ISSY","MEUDON",
+ "CLAMART","SEVRES","BOULOGNE","SAINT-CLOUD","SURESNES","PUTEAUX","COURBEVOIE","NANTERRE","COLOMBES","ASNIERES",
+ "GENNEVILLIERS","CLICHY","SAINT-OUEN","AUBERVILLIERS","PANTIN","BOBIGNY","BONDY","DRANCY","STAINS","GARGES",
+ "SARCELLES","GONESSE","ROISSY","TREMBLAY","AULNAY","SEVRAN","LIVRY","CLAYE-SOUILLY","MEAUX","LAGNY"];
+const OFFRES=["Trunk SIP 30 canaux","Trunk SIP 10 canaux","Accès fibre 1 Gb/s","Accès fibre 200 Mb/s",
+ "Forfait Business 5G","Forfait Data M2M","Lien VPN MPLS","Firewall managé"];
+let _s=20260918;
+function _r(n){ _s=(_s*1103515245+12345)&0x7fffffff; return _s%n }
+function pad(n,l){ return String(n).padStart(l,"0") }
+
+function genererParc(org,prefixe,code,nbSites,contrats,idBase,numBase){
+  let c=0;
+  for(let i=1;i<=nbSites;i++){
+    const v=VILLES[(i-1)%VILLES.length], tour=Math.floor((i-1)/VILLES.length)+1;
+    const lieu=v+(tour>1?" "+tour:"");
+    const uk=code+"U"+i, fk=code+"F"+i, lk=code+"L"+i;
+    SITES[uk]={num:code+pad(i,3)+"U",nom:"SI "+prefixe+" "+lieu,org,cu:1,cf:0,rcs:"SFR",dest:1};
+    SITES[fk]={num:code+pad(i,3)+"F",nom:"CF "+prefixe+" "+lieu,org,cu:0,cf:1,
+               rcs:(i%23===0?"COMPLETEL":"SFR"),dest:(i%17===0?0:1)};
+    const ct=contrats[i%contrats.length];
+    LOTS[lk]={nom:"LOT "+prefixe+" "+lieu,contrat:ct,cu:uk,cf:fk};
+    const n=2+_r(4);
+    for(let j=1;j<=n;j++){
+      c++;
+      const st=(c%37===0)?"Suspendue":((c%53===0)?"A résilier":((c%71===0)?"En cours de migration":"Active"));
+      const fl=(c%29===0)?["acte_en_cours"]:((c%43===0)?["parc_duo"]:((c%61===0)?["non_provisionne"]:[]));
+      LIGNES.push(["IDS-"+(idBase+c),numBase?String(numBase+c):"—",OFFRES[c%OFFRES.length],lk,st,fl]);
+    }
+  }
+}
+genererParc("O4","VALORIS","55",124,["C6","C7"],5100000,155100000);
+genererParc("O9","NOVAPHARM","99",108,["C12"],5300000,232700000);
+
+const PARC=LIGNES.map(r=>({ids:r[0],num:r[1],offre:r[2],lot:r[3],statut:r[4],flags:r[5],
+  cu:r[6]||LOTS[r[3]].cu, cf:r[7]||LOTS[r[3]].cf, contrat:LOTS[r[3]].contrat}));
+
+const STATUTS_OK=["Active"];
+const MOTIFS={
+ statut:["Statut non éligible","Le statut d'activation ne figure pas dans la liste paramétrée des statuts transférables."],
+ acte_en_cours:["Acte de gestion en cours","Une demande est déjà à traiter sur cette ligne. Attendez son traitement."],
+ parc_duo:["Option Parc Duo active","Résiliez l'option Parc Duo avant de transférer la ligne."],
+ non_provisionne:["Article non provisionné","La ligne n'a pas d'identifiant de service actif côté déploiement."],
+ rcs:["RCS incohérent","Le site de facturation cible relève d'un RCS différent de celui du contrat cible."]
+};
+
+const CREER="__CREER__";
+const uniq=a=>[...new Set(a)];
+const PAGE=15;
+
+/* ===================== ÉTAT ===================== */
+const INIT={
+  /* listes vides = aucun filtre, donc « tous ». Chaque axe accepte plusieurs valeurs. */
+  org:"O4", contrats:[], cus:[], cfs:[], ouvert:null, q:"",
+  pageSrc:1, decoches:[],                 // on part de tout coché, comme la maquette
+  tOrgMode:"keep", tOrg:"O2",
+  tContratMode:"keep", tContratOne:"", tContratMap:{},
+  tCuMode:"keep",      tCuOne:"",        tCuMap:{},
+  tCfMode:"keep",      tCfOne:"",        tCfMap:{},
+  date:"2025-12-20",
+  pageCtr:1, pageSuivi:1, pageDet:1, detIdx:0
+};
+let S=JSON.parse(JSON.stringify(INIT));
+const FS={statut:"Tous"};
+function reset(){ S=JSON.parse(JSON.stringify(INIT)); }
+
+/* ===================== SÉLECTIONS ===================== */
+const ctrOf  = o => Object.keys(CONTRATS).filter(c=>CONTRATS[c].org===o);
+const sitesOf= (o,t) => Object.keys(SITES).filter(k=>SITES[k].org===o && (t==="cu"?SITES[k].cu:SITES[k].cf));
+
+function perimetre(){
+  if(!S.org) return [];              // sans organisation, il n'y a pas de parc à montrer
+  return PARC.filter(l=>{
+    if(SITES[l.cu].org!==S.org) return false;
+    if(S.contrats.length && !S.contrats.includes(l.contrat)) return false;
+    if(S.cus.length      && !S.cus.includes(l.cu))           return false;
+    if(S.cfs.length      && !S.cfs.includes(l.cf))           return false;
+    return true;
+  });
+}
+const estCoche = l => !S.decoches.includes(l.ids);
+const selection = () => perimetre().filter(estCoche);
+
+function toutCocher(v){
+  const p=perimetre();
+  S.decoches = v ? S.decoches.filter(i=>!p.some(l=>l.ids===i))
+                 : uniq(S.decoches.concat(p.map(l=>l.ids)));
+  render();
+}
+function cocher(ids,v){
+  S.decoches = v ? S.decoches.filter(i=>i!==ids) : uniq(S.decoches.concat([ids]));
+  render();
+}
+/* ---- listes à choix multiple ---------------------------------------------------
+   Une liste vide vaut « tous », ce qui évite d'avoir à cocher 108 sites pour ne rien
+   filtrer. Cocher puis tout décocher ramène donc au périmètre complet. */
+function msOuvrir(k){ S.ouvert = S.ouvert===k ? null : k; S.q=""; render() }
+function msBascule(k,v){
+  const l=S[k];
+  S[k] = l.includes(v) ? l.filter(x=>x!==v) : l.concat([v]);
+  S.pageSrc=1; normaliser(); render();
+}
+/* Cocher toutes les valeurs et n'en cocher aucune reviennent au même périmètre, mais
+   l'affichage doit refléter ce que l'utilisateur a fait : on coche réellement. */
+function msToutCocher(k,liste){ S[k]=liste.slice(); S.pageSrc=1; normaliser(); render() }
+function msToutEffacer(k){ S[k]=[]; S.pageSrc=1; normaliser(); render() }
+function msChercher(v){ S.q=v; render() }
+
+/* Retirer l'organisation vide tout le reste : les filtres et la sélection de lignes ne
+   veulent plus rien dire, et le tableau doit se vider plutôt que montrer l'ancien parc. */
+function deselectionnerOrga(){
+  S.org=null; S.contrats=[]; S.cus=[]; S.cfs=[]; S.decoches=[];
+  S.pageSrc=1; S.ouvert="org"; S.q=""; render();
+}
+function setOrg(v){
+  S.org=v; S.contrats=[]; S.cus=[]; S.cfs=[]; S.ouvert=null; S.q=""; S.decoches=[]; S.pageSrc=1;
+  S.tOrg=Object.keys(ORGS).find(k=>k!==v);
+  ["tContrat","tCu","tCf"].forEach(a=>{S[a+"Mode"]="keep";S[a+"One"]="";S[a+"Map"]={}});
+  normaliser(); render();
+}
+
+/* ===================== DESTINATION ===================== */
+const AXES={tContrat:{champ:"contrat"},tCu:{champ:"cu"},tCf:{champ:"cf"}};
+const orgCible = () => S.tOrgMode==="keep" ? S.org : S.tOrg;
+function sourcesDe(axe){ return uniq(selection().map(l=>l[AXES[axe].champ])) }
+function ciblesDe(axe){
+  const o=orgCible();
+  return axe==="tContrat" ? ctrOf(o) : sitesOf(o, axe==="tCu"?"cu":"cf");
+}
+function nomDe(axe,k){
+  if(k===CREER) return "Créer à partir de la source";
+  if(axe==="tContrat") return CONTRATS[k] ? CONTRATS[k].num+" - "+CONTRATS[k].nom : k;
+  return SITES[k] ? SITES[k].num+" - "+SITES[k].nom : k;
+}
+function normaliser(){
+  if(S.tOrgMode==="set" && S.tContratMode==="keep") S.tContratMode="one";
+  ["tContrat","tCu","tCf"].forEach(a=>{
+    const poss=ciblesDe(a).concat([CREER]);
+    if(!poss.includes(S[a+"One"])) S[a+"One"]=poss[0];
+    const m=S[a+"Map"]||{};
+    Object.keys(m).forEach(k=>{ if(!poss.includes(m[k])) delete m[k] });
+    S[a+"Map"]=m;
+  });
+}
+function setMode(axe,m){ S[axe+"Mode"]=m; normaliser(); render() }
+function setOne(axe,v){ S[axe+"One"]=v; render() }
+function setMap(axe,src,v){ S[axe+"Map"][src]=v; render() }
+function cibleDe(axe,src){
+  const m=S[axe+"Mode"];
+  if(m==="keep") return src;
+  if(m==="one")  return S[axe+"One"];
+  return S[axe+"Map"][src] || CREER;
+}
+
+/* ===================== CONTRÔLES ===================== */
+function controler(){
+  const ok=[], ko=[];
+  selection().forEach(l=>{
+    const m=[];
+    if(!STATUTS_OK.includes(l.statut)) m.push("statut");
+    l.flags.forEach(f=>m.push(f));
+    const cf=cibleDe("tCf",l.cf), ct=cibleDe("tContrat",l.contrat);
+    if(cf!==CREER && ct!==CREER && SITES[cf] && CONTRATS[ct] && SITES[cf].rcs!==CONTRATS[ct].rcs) m.push("rcs");
+    if(m.length) ko.push({l,motifs:m}); else ok.push(l);
+  });
+  return {ok,ko};
+}
+
+/* ===================== OUTILS D'AFFICHAGE ===================== */
+const el = id => document.getElementById(id);
+function opts(liste, courant, vide){
+  return (vide?`<option value="ALL"${courant==="ALL"?" selected":""}>${vide}</option>`:"")
+    + liste.map(o=>`<option value="${o.v}"${o.v===courant?" selected":""}>${o.t}</option>`).join("");
+}
+function pagination(total, page, fn){
+  const n=Math.max(1,Math.ceil(total/PAGE));
+  if(n<2) return "";
+  const vus=[]; for(let i=1;i<=Math.min(n,3);i++) vus.push(i);
+  return `<span class="ch">‹</span>`
+    + vus.map(i=>`<button onclick="${fn}(${i})" aria-current="${i===page}">${i}</button>`).join("")
+    + `<span class="ch">›</span>`;
+}
+function pageSrc(p){S.pageSrc=p;render()}
+function pageCtr(p){S.pageCtr=p;render()}
+function pageSuivi(p){S.pageSuivi=p;renderSuivi()}
+function pageDet(p){S.pageDet=p;renderDetail()}
+
+/* Rend une liste à choix multiple : un champ qui ressemble à un select, et un panneau
+   de cases à cocher. Au-delà de douze valeurs, un champ de recherche apparaît, sinon
+   choisir parmi cent huit sites devient pénible. */
+function multiselect(cle, liste, singulier, pluriel, libelleTous){
+  const sel=S[cle], ouvert=S.ouvert===cle;
+  const titre = (sel.length===0 || sel.length===liste.length) ? `${libelleTous} (${liste.length})`
+              : sel.length===1 ? liste.find(o=>o.v===sel[0]).t
+              : `${sel.length} ${pluriel} sélectionnés`;
+
+  let pan="";
+  if(ouvert){
+    const q=(S.q||"").toLowerCase();
+    const vus=liste.filter(o=>!q||o.t.toLowerCase().includes(q));
+    pan=`<div class="pan">
+      <div class="tools">
+        <button onclick="msToutCocher('${cle}',${JSON.stringify(liste.map(o=>o.v)).replace(/"/g,"&quot;")})">Tout sélectionner</button>
+        <button onclick="msToutEffacer('${cle}')">Tout effacer</button>
+        <button onclick="msOuvrir('${cle}')" style="margin-left:auto">Fermer</button>
+      </div>`
+      + (liste.length>12?`<input class="q" type="text" placeholder="Rechercher un ${singulier}"
+           value="${S.q||""}" oninput="msChercher(this.value)">`:"")
+      + (vus.length?vus.map(o=>`<label><input type="checkbox" ${sel.includes(o.v)?"checked":""}
+           onclick="msBascule('${cle}','${o.v}')">${o.t}</label>`).join("")
+         : `<div class="vide">Aucun résultat</div>`)
+      + `</div>`;
+  }
+  return `<div class="ms">
+    <div class="champ ${ouvert?"ouvert":""}" onclick="msOuvrir('${cle}')">${titre}</div>${pan}</div>`;
+}
+
+/* ===================== ÉCRAN 1 — SOURCE ===================== */
+function renderSource(){
+  const o=S.org?ORGS[S.org]:null;
+  if(S.ouvert==="org"){
+    const q=(S.q||"").toLowerCase();
+    const vus=Object.keys(ORGS).filter(k=>{
+      const x=ORGS[k]; return !q || (x.nom+" "+x.siren+" "+x.num+" "+x.ville).toLowerCase().includes(q);
+    });
+    el("orgBox").innerHTML=`<div class="ms" style="max-width:520px">
+      <div class="champ ouvert" onclick="msOuvrir('org')">${o?o.nom:"Sélectionner une organisation"}</div>
+      <div class="pan">
+        <input class="q" type="text" placeholder="Raison sociale, SIREN, ville ou numéro"
+               value="${S.q||""}" oninput="msChercher(this.value)">`
+      + (vus.length?vus.map(k=>`<label onclick="setOrg('${k}')">
+            <span><b style="color:var(--ink)">${ORGS[k].nom}</b><br>
+            <span style="font-size:11.5px;color:var(--ink-3)">SIREN ${ORGS[k].siren} · ${ORGS[k].ville} · ${ORGS[k].num}</span></span>
+          </label>`).join("")
+         : `<div class="vide">Aucune organisation ne correspond</div>`)
+      + `</div></div>`;
+  } else if(o){
+    el("orgBox").innerHTML=
+      `<div class="orgbox"><div>
+         <div class="nm">${o.nom} (${o.num})</div>
+         <div class="sr">SIREN ${o.siren}</div>
+       </div><button class="x" title="Retirer l'organisation" onclick="deselectionnerOrga()">✕</button></div>`;
+  } else {
+    el("orgBox").innerHTML=`<div class="ms" style="max-width:520px">
+      <div class="champ" onclick="msOuvrir('org')">Sélectionner une organisation</div></div>`;
+  }
+
+  el("fContrat").innerHTML=multiselect("contrats",
+    (S.org?ctrOf(S.org):[]).map(c=>({v:c,t:CONTRATS[c].num+" - "+CONTRATS[c].nom})),
+    "contrat","contrats","Tous les contrats");
+  el("fCu").innerHTML=multiselect("cus",
+    (S.org?sitesOf(S.org,"cu"):[]).map(k=>({v:k,t:SITES[k].nom})),
+    "site d'installation","sites d'installation","Tous les sites d'installation");
+  el("fCf").innerHTML=multiselect("cfs",
+    (S.org?sitesOf(S.org,"cf"):[]).map(k=>({v:k,t:SITES[k].nom})),
+    "compte de facturation","comptes de facturation","Tous les comptes de facturation");
+
+  const p=perimetre(), sel=selection();
+  el("srcTitre").textContent=p.length+" Lignes";
+  el("cartBadge").innerHTML="<b>"+sel.length+"</b>MID sélectionnés";
+  el("srcAll").checked = p.length>0 && sel.length===p.length;
+  el("btnDest").disabled = sel.length===0;
+
+  const deb=(S.pageSrc-1)*PAGE;
+  el("srcBody").innerHTML=p.slice(deb,deb+PAGE).map(l=>`<tr>
+      <td><input type="checkbox" ${estCoche(l)?"checked":""} onclick="cocher('${l.ids}',this.checked)"></td>
+      <td>${l.ids}</td><td>${l.num}</td><td>${l.offre}</td>
+      <td>${CONTRATS[l.contrat].num}</td><td>${LOTS[l.lot].nom}</td>
+      <td>${SITES[l.cu].nom}</td><td>${SITES[l.cf].nom}</td>
+      <td><span class="tag ${l.statut==="Active"?"ok":"idle"}">${l.statut}</span></td>
+    </tr>`).join("") || `<tr><td colspan="9" style="text-align:center;color:#8E8E8E;padding:30px">`
+      + (S.org ? "Aucune ligne dans ce périmètre"
+               : "Sélectionnez une organisation pour afficher son parc") + `</td></tr>`;
+  el("srcPg").innerHTML=pagination(p.length,S.pageSrc,"pageSrc");
+}
+
+
+/* ===================== ÉCRAN 2 — DESTINATION ===================== */
+function blocRadios(axe, nb, libelles){
+  const m=S[axe+"Mode"];
+  return `<p class="srclbl">${nb}</p>
+    <div class="radios">` + libelles.map(([v,t])=>
+      `<label><input type="radio" name="${axe}" ${m===v?"checked":""} onclick="setMode('${axe}','${v}')">${t}</label>`
+    ).join("") + `</div>`;
+}
+function blocMapping(axe, titre){
+  const src=sourcesDe(axe), cibles=ciblesDe(axe).map(k=>({v:k,t:nomDe(axe,k)}))
+      .concat([{v:CREER,t:"Créer à partir de la source"}]);
+  return `<p class="srclbl" style="margin-top:18px">${titre}</p>` + src.slice(0,8).map(k=>
+    `<div class="maprow">
+       <div class="src">${nomDe(axe,k)}</div>
+       <div class="ar">→</div>
+       <select onchange="setMap('${axe}','${k}',this.value)">${opts(cibles,cibleDe(axe,k))}</select>
+     </div>`).join("")
+   + (src.length>8?`<p class="help">et ${src.length-8} autre(s) — la maquette en affiche les huit premiers.</p>`:"");
+}
+function blocUn(axe){
+  const cibles=ciblesDe(axe).map(k=>({v:k,t:nomDe(axe,k)})).concat([{v:CREER,t:"Créer à partir de la source"}]);
+  return `<div style="margin-top:14px;max-width:420px">
+      <select onchange="setOne('${axe}',this.value)">${opts(cibles,S[axe+"One"])}</select></div>`;
+}
+function renderDestination(){
+  if(!S.org){ ["dOrg","dContrat","dCu","dCf"].forEach(i=>el(i).innerHTML=""); return }
+  const o=ORGS[S.org];
+  el("dOrg").innerHTML=
+    `<p class="srclbl">Orga source : ${o.num} - ${o.nom}</p>
+     <div class="radios">
+       <label><input type="radio" name="org" ${S.tOrgMode==="keep"?"checked":""} onclick="S.tOrgMode='keep';normaliser();render()">Conserver l'organisation source</label>
+       <label><input type="radio" name="org" ${S.tOrgMode==="set"?"checked":""} onclick="S.tOrgMode='set';normaliser();render()">Sélectionner une organisation cible</label>
+     </div>`
+    + (S.tOrgMode==="set" ? `<div style="margin-top:14px;max-width:420px"><select onchange="S.tOrg=this.value;normaliser();render()">`
+        + opts(Object.keys(ORGS).filter(k=>k!==S.org).map(k=>({v:k,t:ORGS[k].num+" - "+ORGS[k].nom})),S.tOrg)
+        + `</select></div>` : "");
+
+  const nc=sourcesDe("tContrat").length;
+  el("dContrat").innerHTML=blocRadios("tContrat", nc+" contrat"+(nc>1?"s":"")+" source",
+    [["keep","Conserver les contrats source"],
+     ["one","Sélectionner un seul contrat cible pour tous les contrats source"],
+     ["map","Sélectionner différents contrats cible"]])
+    + (S.tContratMode==="one"?blocUn("tContrat"):"")
+    + (S.tContratMode==="map"?blocMapping("tContrat","Différents contrats cible"):"");
+
+  const nu=sourcesDe("tCu").length;
+  el("dCu").innerHTML=blocRadios("tCu", nu+" site"+(nu>1?"s":"")+" d'installation source",
+    [["keep","Conserver les sites source"],
+     ["map","Sélectionner différents sites cible"]])
+    + (S.tCuMode==="map"?blocMapping("tCu","Différents sites d'installation cible"):"");
+
+  const nf=sourcesDe("tCf").length;
+  el("dCf").innerHTML=blocRadios("tCf", nf+" compte"+(nf>1?"s":"")+" de facturation source",
+    [["keep","Conserver les CF source"],
+     ["one","Sélectionner un seul CF cible pour tous les CF source"],
+     ["map","Sélectionner différents CF cible"]])
+    + (S.tCfMode==="one"?blocUn("tCf"):"")
+    + (S.tCfMode==="map"?blocMapping("tCf","Différents comptes de facturation cible"):"");
+
+  el("dDate").value=S.date;
+}
+
+/* ===================== ÉCRAN 3 — CONTRÔLES ===================== */
+function renderControles(){
+  const r=controler();
+  el("ctrTitre").textContent=(r.ok.length+r.ko.length)+" Lignes";
+  el("ctrOk").textContent=r.ok.length;
+  el("ctrKo").textContent=r.ko.length;
+  el("ctrKoTitre").textContent=r.ko.length+" Lignes bloquées";
+  el("btnSuite").disabled=r.ok.length===0;
+
+  const deb=(S.pageCtr-1)*PAGE;
+  el("ctrBody").innerHTML=r.ko.slice(deb,deb+PAGE).map(x=>{
+    const m=MOTIFS[x.motifs[0]]||["—","—"];
+    return `<tr><td>${x.l.ids}</td><td>${x.l.num}</td>
+      <td><span class="tag ko">Bloquée</span></td>
+      <td>${m[0]}</td><td>${m[1]}</td></tr>`;
+  }).join("") || `<tr><td colspan="5" style="text-align:center;color:#8E8E8E;padding:26px">Aucune ligne bloquée</td></tr>`;
+  el("ctrPg").innerHTML=pagination(r.ko.length,S.pageCtr,"pageCtr");
+}
+
+/* ===================== ÉCRAN 4 — VALIDATION ===================== */
+function renderValidation(){
+  if(!S.org){ el("valBody").innerHTML=""; el("valBadge").innerHTML="<b>0</b>MID sélectionnés"; return }
+  const r=controler(), o=ORGS[S.org], oc=ORGS[orgCible()];
+  el("valBadge").innerHTML="<b>"+r.ok.length+"</b>MID sélectionnés";
+  const nbCible = axe => uniq(sourcesDe(axe).map(k=>cibleDe(axe,k))).length;
+  const l = (s,c) => `<tr><td>${s}</td><td>${c}</td></tr>`;
+  el("valBody").innerHTML =
+      l(`${o.num} - ${o.nom}`, `${oc.num} - ${oc.nom}`)
+    + l(`${sourcesDe("tContrat").length} contrats source`, `${nbCible("tContrat")} contrats cible`)
+    + l(`${sourcesDe("tCu").length} sites d'installation source`, `${nbCible("tCu")} sites d'installation cible`)
+    + l(`${sourcesDe("tCf").length} comptes de facturation source`, `${nbCible("tCf")} comptes de facturation cible`);
+  const d=S.date?S.date.split("-"):["2025","12","20"];
+  el("valDate").textContent=d[2]+"/"+d[1]+"/"+d[0];
+}
+
+/* ===================== ÉCRAN 5 — SUIVI ===================== */
+const STATUTS={
+  EN_ATTENTE:{lib:"En attente",tag:"idle"},
+  EN_COURS_PARENTS:{lib:"Création des objets",tag:"run"},
+  PARENTS_CREES:{lib:"Objets créés, à valider",tag:"warn"},
+  PARENTS_EN_ERREUR:{lib:"Objets en erreur",tag:"ko"},
+  EN_ATTENTE_TRT_LIGNES:{lib:"Validée, en attente",tag:"idle"},
+  EN_COURS_LIGNES:{lib:"En cours",tag:"run"},
+  TRAITEE:{lib:"Traitée",tag:"ok"},
+  TRAITEE_PARTIELLE:{lib:"Traitée partiellement",tag:"warn"},
+  EN_ERREUR:{lib:"Erreur technique",tag:"ko"},
+  ANNULEE:{lib:"Annulée",tag:"idle"}
+};
+const OPERATIONS={
+  CHGT_TITULAIRE:"Changement de titulaire",
+  TRANSFERT_INTER_CONTRAT:"Transfert inter-contrat",
+  CHGT_SI_ET_CF:"Changement de SI et de CF",
+  CHGT_SITE_INSTALLATION:"Changement de site d'installation",
+  REORG_FACT_CENTRA:"Réorganisation de la structure de facture - centralisation",
+  REORG_FACT_DECENTRA:"Réorganisation de la structure de facture - décentralisation",
+  CHGT_SITE_FACTURATION:"Changement de compte de facturation"
+};
+/* Une seule icône par ligne, jamais deux.
+     supprimer : uniquement tant que le transfert n'a pas commencé, donc avant qu'un
+       worker ne l'ait prise en charge ;
+     relancer  : uniquement une fois le transfert terminé et des lignes en erreur.
+   Entre les deux, pendant que le traitement tourne, aucune action n'est proposée. */
+const SUPPRIMABLES=["EN_ATTENTE"];
+const RELANCABLES =["TRAITEE_PARTIELLE","EN_ERREUR"];
+let nextRef=4872;
+let SUIVI=[
+ ["TR-2026-004871","CHGT_TITULAIRE","MERIDIA EXPLOITATION SAS","831885","907114","08/09/2026 09:15","01/10/2026",[72,4,9],334,"EN_COURS_LIGNES"],
+ ["TR-2026-004870","TRANSFERT_INTER_CONTRAT","GROUPE VALORIS DISTRIBUTION SA","612004","612118","08/09/2026 14:10","01/10/2026",[0,0,0],96,"PARENTS_CREES"],
+ ["TR-2026-004869","REORG_FACT_CENTRA","GROUPE VALORIS DISTRIBUTION SA","612004","612004","08/09/2026 11:40","01/10/2026",[42,0,12],1180,"EN_COURS_LIGNES"],
+ ["TR-2026-004868","CHGT_TITULAIRE","NOVAPHARM LABORATOIRES SA","733018","907114","08/09/2026 10:05","01/10/2026",[0,0,0],108,"PARENTS_EN_ERREUR"],
+ ["TR-2026-004867","TRANSFERT_INTER_CONTRAT","VALORIS IMMOBILIER SCI","612330","612330","08/09/2026 09:50","01/10/2026",[0,0,0],48,"EN_ATTENTE_TRT_LIGNES"],
+ ["TR-2026-004866","CHGT_SI_ET_CF","ATLANTIQUE MAREE SARL","588210","588210","08/09/2026 09:25","08/09/2026",[100,0,0],3,"TRAITEE"],
+ ["TR-2026-004861","REORG_FACT_DECENTRA","GROUPE VALORIS DISTRIBUTION SA","612004","612004","08/09/2026 08:30","12/09/2026",[0,0,0],240,"EN_COURS_PARENTS"],
+ ["TR-2026-004859","REORG_FACT_DECENTRA","NOVAPHARM LABORATOIRES SA","733018","733018","07/09/2026 16:40","15/09/2026",[0,0,0],842,"EN_ATTENTE"],
+ ["TR-2026-004854","CHGT_SITE_FACTURATION","COMMUNE DE SAINT-MARTIN-DE-RE","689221","689221","07/09/2026 11:02","07/09/2026",[79,21,0],76,"EN_ERREUR"],
+ ["TR-2026-004833","TRANSFERT_INTER_CONTRAT","MERIDIA EXPLOITATION SAS","831885","907114","05/09/2026 08:55","05/09/2026",[100,0,0],620,"TRAITEE"]
+];
+function barre(a){
+  const [ok,ko,run]=a;
+  return `<span class="bar"><i class="b-ok" style="width:${ok}%"></i>`
+       + `<i class="b-ko" style="width:${ko}%"></i><i class="b-run" style="width:${run}%"></i></span>`;
+}
+function renderSuivi(){
+  const st=el("fSuiviStatut");
+  if(st && !st.options.length)
+    st.innerHTML=`<option>Tous</option>`+Object.keys(STATUTS).map(k=>`<option value="${k}">${STATUTS[k].lib}</option>`).join("");
+  const ct=el("fSuiviCtr");
+  if(ct && !ct.options.length)
+    ct.innerHTML=`<option>Tous</option>`+uniq(SUIVI.map(r=>r[3])).map(n=>`<option>${n}</option>`).join("");
+
+  const liste=SUIVI.filter(r=>FS.statut==="Tous"||r[9]===FS.statut);
+  el("suiviTitre").textContent=liste.length+" Demandes";
+  const deb=(S.pageSuivi-1)*PAGE;
+  el("suiviBody").innerHTML=liste.slice(deb,deb+PAGE).map((r,i)=>{
+    const s=STATUTS[r[9]]||{lib:r[9],tag:"idle"};
+    /* Une seule icône, celle qui correspond au stade de la demande, ou aucune. */
+    const act = SUPPRIMABLES.includes(r[9])
+      ? `<button class="act" title="Supprimer la demande" onclick="supprimer(${deb+i})">🗑</button>`
+      : RELANCABLES.includes(r[9])
+        ? `<button class="act" title="Relancer les lignes en erreur" onclick="relancerDepuisSuivi(${deb+i})">↻</button>`
+        : "";
+    return `<tr>
+      <td><span class="lnk" onclick="openDet(${deb+i})">${r[0]}</span></td>
+      <td>${OPERATIONS[r[1]] || `<i style="color:#8E8E8E">en attente de qualification</i>`}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td>
+      <td>${r[5]}</td><td>${r[6]}</td><td>${barre(r[7])}</td><td>${r[8]}</td>
+      <td><span class="tag ${s.tag}">${s.lib}</span></td><td>${act}</td></tr>`;
+  }).join("");
+  el("suiviPg").innerHTML=pagination(liste.length,S.pageSuivi,"pageSuivi");
+}
+function supprimer(i){
+  if(!SUPPRIMABLES.includes(SUIVI[i][9])) return;
+  SUIVI.splice(i,1); renderSuivi();
+}
+function relancerDepuisSuivi(i){
+  if(!RELANCABLES.includes(SUIVI[i][9])) return;
+  S.detIdx=i; relancer(); renderSuivi();
+}
+
+/* ===================== ÉCRAN 6 — DÉTAIL ===================== */
+const ETAPES=["Création des objets partagés","Résiliation des BDS sources","Création des BDS cibles","Propagation aval"];
+function openDet(i){ S.detIdx=i; S.pageDet=1; go(6) }
+function renderDetail(){
+  const r=SUIVI[S.detIdx]; if(!r) return;
+  const st=STATUTS[r[9]]||{lib:r[9],tag:"idle"};
+  const n=r[8], ok=Math.round(n*r[7][0]/100), ko=Math.round(n*r[7][1]/100),
+        run=Math.round(n*r[7][2]/100), att=Math.max(0,n-ok-ko-run);
+
+  el("detCheck").innerHTML=
+    `<div class="dethead" style="margin:-22px -22px 22px">
+       <button class="back" onclick="go(5)">Retour au suivi des demandes</button>
+       <p class="ref">${r[0].replace(/-/g," – ")}</p>
+       <p class="sub">${OPERATIONS[r[1]]||r[1]} · ${r[2]}</p>
+       <p class="mini">${n} lignes · démarré le ${r[5]}</p>
+     </div>
+     <div class="info">Les objets partagés — contrats, sites et lots à créer — sont créés en séquentiel avant le traitement des lignes. Les lignes sont ensuite traitées en parallèle.</div>`;
+
+  const pc=x=>n?Math.round(x*100/n):0;
+  el("detBar").innerHTML=`<i class="b-ok" style="width:${pc(ok)}%"></i>`
+    +`<i class="b-ko" style="width:${pc(ko)}%"></i><i class="b-warn" style="width:${pc(run)}%"></i>`;
+  el("detKpis").innerHTML=
+      `<div class="kpi"><b>${ok}</b><span class="tag ok">Transférées</span></div>`
+    + `<div class="kpi"><b>${run}</b><span class="tag warn">Erreur métier</span></div>`
+    + `<div class="kpi"><b>${ko}</b><span class="tag ko">Erreur technique</span></div>`
+    + `<div class="kpi"><b>${att}</b><span class="tag idle">En attente</span></div>`;
+
+  el("detTitre").textContent=n+" Lignes";
+  const ech=PARC.slice(0,Math.min(n,60));
+  const deb=(S.pageDet-1)*PAGE;
+  el("detBody").innerHTML=ech.slice(deb,deb+PAGE).map((l,k)=>{
+    const g=(deb+k)%9, s = g<4?["ok","Transférée","—"] : g===4?["warn","Erreur métier","Option Parc Duo active"]
+            : g===5?["ko","Erreur technique","Délai dépassé côté déploiement"] : ["idle","En attente","—"];
+    return `<tr><td>${l.ids}</td><td>${l.num}</td><td>${l.offre}</td>
+      <td>${ETAPES[(deb+k)%ETAPES.length]}</td><td>${r[5]}</td>
+      <td><span class="tag ${s[0]}">${s[1]}</span></td><td>${s[2]}</td></tr>`;
+  }).join("");
+  el("detPg").innerHTML=pagination(Math.min(n,60),S.pageDet,"pageDet");
+}
+function relancer(){
+  const r=SUIVI[S.detIdx]; if(!r) return;
+  r[7]=[r[7][0]+r[7][1],0,r[7][2]]; r[9]="EN_COURS_LIGNES"; renderDetail();
+}
+
+/* ===================== CRÉATION D'UNE DEMANDE ===================== */
+function creerDemande(){
+  const r=controler(), o=ORGS[S.org], oc=ORGS[orgCible()];
+  const ctSrc=sourcesDe("tContrat"), ctCbl=uniq(ctSrc.map(k=>cibleDe("tContrat",k)));
+  SUIVI.unshift(["TR-2026-00"+(nextRef++), "", o.nom,
+    CONTRATS[ctSrc[0]]?CONTRATS[ctSrc[0]].num:"—",
+    CONTRATS[ctCbl[0]]?CONTRATS[ctCbl[0]].num:"—",
+    "18/09/2026 10:04", S.date.split("-").reverse().join("/"),
+    [0,0,0], r.ok.length, "EN_ATTENTE"]);
+  go(5);
+}
+
+/* ===================== NAVIGATION ===================== */
+const STEPS=["Source","Destination","Contrôles","Validation"];
+[1,2,3,4].forEach(n=>{ const e=el("st"+n); if(e) e.innerHTML=STEPS.map((t,k)=>{
+  const x=k+1, cls=x<n?"done":(x===n?"on":"");
+  return `<div class="step ${cls}"><div class="n">${x<n?"✓":x}</div><div class="t">${t}</div></div>`}).join("") });
+
+function render(){ renderSource(); renderDestination(); renderControles(); renderValidation() }
+
+function go(i){
+  render(); if(i===5) renderSuivi(); if(i===6) renderDetail();
+  document.querySelectorAll(".screen").forEach(e=>e.classList.toggle("on",+e.dataset.s===i));
+  document.querySelectorAll(".proto button[data-t]").forEach(b=>b.setAttribute("aria-current",+b.dataset.t===i));
+  el("tabNouveau").setAttribute("aria-current", i>=1&&i<=4);
+  el("tabSuivi").setAttribute("aria-current", i>=5);
+  el("chrome").classList.toggle("hidden", i===6);
+  window.scrollTo({top:0});
+}
+setOrg("O4"); go(1);
+</script>
+</body>
+</html>
