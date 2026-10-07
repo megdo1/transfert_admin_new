@@ -189,7 +189,6 @@ def ouvrir_connexion(cfg):
             dsn=cfg['dsn'], externalauth=True,
             encoding=cfg['encodage'], nencoding=cfg['encodage'])
 
-    cnx.callTimeout = 0        # les traitements de masse sont longs par nature
     return cnx
 
 

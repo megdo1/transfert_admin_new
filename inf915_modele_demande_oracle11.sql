@@ -938,7 +938,7 @@ FROM   INF915_NOTIFICATIONS n;
 --           l.ID_LOT_CIBLE     = (SELECT p.ID_OBJET_CIBLE FROM INF915_OBJET_PARENT p
 --                                  WHERE p.ID_NOTIFICATION = l.ID_NOTIFICATION
 --                                    AND p.TYPE_OBJET      = 'LOT'
---                                    AND p.ID_OBJET_SOURCE = l.ID_LOT_SOURCE),
+--                                    AND p.ID_OBJET_SOURCE = l.ID_LOT_SOURCE)
 --     WHERE l.ID_NOTIFICATION = :id
 --       AND l.STATUT          = 'A_TRAITER';
 --

@@ -1026,6 +1026,19 @@ CREATE OR REPLACE PACKAGE BODY INF915_PY AS
 
     l_final := CASE WHEN l_nb_ko > 0 THEN 'PARENTS_EN_ERREUR' ELSE 'PARENTS_CREES' END;
 
+    -- Report des cibles sur les lignes, avant la phase parallèle. Tous les objets sont
+    -- créés : FN_CIBLE rend l'objet créé, ou la source elle-même pour un objet absent du
+    -- périmètre des cibles (conservé tel quel). Rejouable après une correction.
+    IF l_final = 'PARENTS_CREES' THEN
+      UPDATE INF915_LIGNE l
+         SET l.ID_CONTRAT_CIBLE = FN_CIBLE (l.ID_NOTIFICATION, 'CONTRAT', l.ID_CONTRAT_SOURCE),
+             l.ID_SI_CIBLE      = FN_CIBLE (l.ID_NOTIFICATION, 'SI',      l.ID_SI_SOURCE),
+             l.ID_CF_CIBLE      = FN_CIBLE (l.ID_NOTIFICATION, 'CF',      l.ID_CF_SOURCE),
+             l.ID_LOT_CIBLE     = FN_CIBLE (l.ID_NOTIFICATION, 'LOT',     l.ID_LOT_SOURCE)
+       WHERE l.ID_NOTIFICATION = p_id_notification
+         AND l.STATUT          = 'A_TRAITER';
+    END IF;
+
     UPDATE INF915_NOTIFICATIONS
        SET NB_OBJETS_CREES = (SELECT COUNT(*) FROM INF915_OBJET_PARENT
                                WHERE ID_NOTIFICATION = p_id_notification
@@ -1480,11 +1493,16 @@ CREATE OR REPLACE PACKAGE BODY INF915_PY AS
     END IF;
     COMMIT;
 
-    SELECT l.*, n.DATE_EFFET
-      INTO l_lig, l_effet
-      FROM INF915_LIGNE        l
-      JOIN INF915_NOTIFICATIONS n ON n.ID_NOTIFICATION = l.ID_NOTIFICATION
-     WHERE l.ID_LIGNE = p_id_ligne;
+    -- Deux lectures : un %ROWTYPE ne peut pas partager la clause INTO avec un scalaire.
+    SELECT *
+      INTO l_lig
+      FROM INF915_LIGNE
+     WHERE ID_LIGNE = p_id_ligne;
+
+    SELECT DATE_EFFET
+      INTO l_effet
+      FROM INF915_NOTIFICATIONS
+     WHERE ID_NOTIFICATION = l_lig.ID_NOTIFICATION;
 
     -- Idempotence : une ligne déjà transférée n'est jamais rejouée.
     IF l_lig.ID_CONTR_ITM_CIBLE IS NOT NULL THEN
@@ -1505,6 +1523,14 @@ CREATE OR REPLACE PACKAGE BODY INF915_PY AS
           'INF915 : la BdS porteuse de la ligne ' || p_id_ligne ||
           ' n''est pas encore transferee.');
       END IF;
+    END IF;
+
+    -- Garde-fou : les cibles sont reportées sur la ligne en fin de phase parents. Une
+    -- cible absente signale une demande ouverte sans ce report, rien ne doit être copié.
+    IF l_lig.ID_LOT_CIBLE IS NULL OR l_lig.ID_SI_CIBLE IS NULL
+       OR l_lig.ID_CF_CIBLE IS NULL THEN
+      RAISE_APPLICATION_ERROR (-20946,
+        'INF915 : cibles non reportees sur la ligne ' || p_id_ligne || '.');
     END IF;
 
     PR_TRANSFERER_BDS1 (l_lig.ID_CONTR_ITM,
